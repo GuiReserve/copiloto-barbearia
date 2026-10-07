@@ -21,7 +21,7 @@ const sobrancelha: typeof barbearia = {
   cadaPro: 'cada profissional', outroPro: 'outra profissional', qualquerPro: 'qualquer profissional', novoPro: 'Nova profissional', proPreferido: 'Profissional preferida',
   umPro: 'uma profissional', osPros: 'as profissionais', proPath: '/profissionais',
   exServico: 'Design com henna', exPrimeiro: 'Design de sobrancelhas, R$ 45, 30 minutos', exEspecialidades: 'Design personalizado, brow lamination, henna', varPro: 'profissional', varNegocio: 'estudio',
-  pitch: ['Agenda online: a cliente marca sozinha pelo link da bio', 'Desmarcou? O horário é oferecido para quem está na fila', 'Quem está na hora da manutenção e quem sumiu'],
+  pitch: ['Agenda online: a cliente marca sozinha pelo seu link', 'Desmarcou? O horário é oferecido para quem está na fila', 'Quem está na hora da manutenção e quem sumiu'],
 };
 export type Terms = typeof barbearia;
 export const terms = (k: Kind | string | null | undefined): Terms => (k === 'sobrancelha' ? sobrancelha : barbearia);

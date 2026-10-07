@@ -7,7 +7,7 @@ import { ActionForm, CopyButton, Modal, Submit } from '@/components/ui';
 import { appUrl } from '@/lib/waitlist';
 import { HoursForm } from '@/components/hours';
 import { saveHours } from '../barbeiros/actions';
-import { addBlock, addSource, addUser, changeOwnPassword, newRecoveryCode, removeBlock, resetUserPassword, saveShop, saveTemplate, toggleSource, toggleUser } from './actions';
+import { addBlock, addUser, changeOwnPassword, newRecoveryCode, removeBlock, resetUserPassword, saveShop, saveTemplate, toggleUser } from './actions';
 
 const KIND: Record<string, string> = { bloqueio: 'Bloqueio', folga: 'Folga', feriado: 'Feriado' };
 
@@ -25,7 +25,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                         from time_blocks t left join barbers b on b.id = t.barber_id where t.ends_at > now() order by t.starts_at limit 50`),
     users: admin ? await tx.q(`select u.id, u.name, u.email, u.role, u.active, b.name barber from users u left join barbers b on b.id = u.barber_id order by u.active desc, u.name`) : [],
     templates: admin ? await tx.q(`select kind, body from message_templates order by kind`) : [],
-    sources: admin ? await tx.q(`select id, name, kind, active from marketing_sources order by active desc, name`) : [],
     log: admin ? await tx.q(`select a.action, a.ip, to_char(a.created_at, 'DD/MM HH24:MI') quando, u.name from audit_log a left join users u on u.id = a.user_id order by a.id desc limit 40`) : [],
   }));
   const bookingUrl = `${appUrl()}/b/${d.st.slug}`;
@@ -64,7 +63,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       {staff && (
         <section className="card stack-sm"><h2>Página de agendamento dos clientes</h2>
           {d.st.public_booking ? <>
-            <p>Mande este link para os clientes ou coloque na bio do Instagram e no perfil do Google:</p>
+            <p>Mande este link para os clientes pelo WhatsApp ou deixe onde eles encontram você:</p>
             <p className="msg">{bookingUrl}</p>
             <div className="row"><CopyButton text={bookingUrl} label="Copiar link" /><a className="btn btn-sm" href={bookingUrl} target="_blank" rel="noopener noreferrer">Abrir página</a></div>
           </> : <p className="muted">O agendamento online está desligado. {admin ? `Ligue no quadro "${t.Negocio}" acima.` : 'Peça ao admin para ligar.'}</p>}
@@ -146,23 +145,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               </ActionForm>
             ))}
           </div>
-        </section>
-      )}
-
-      {admin && (
-        <section className="card"><h2>De onde vêm os clientes</h2>
-          <div className="chips">
-            {d.sources.map((o) => (
-              <ActionForm action={toggleSource} className="" key={o.id}><input type="hidden" name="id" value={o.id} />
-                <Submit className={`btn btn-sm${o.active ? '' : ' btn-danger'}`}>{o.name}{o.active ? '' : ' (desativada)'}</Submit>
-              </ActionForm>
-            ))}
-          </div>
-          <p className="muted small">Toque em uma origem para ativar ou desativar.</p>
-          <ActionForm action={addSource} className="row">
-            <input name="name" placeholder="Nova origem, ex.: TikTok" maxLength={40} required aria-label="Nova origem" className="grow" />
-            <Submit className="btn">Adicionar</Submit>
-          </ActionForm>
         </section>
       )}
 

@@ -2,13 +2,11 @@ import Link from 'next/link';
 import { requireSession } from '@/lib/auth';
 import { terms } from '@/lib/terms';
 import { withTenant, type Tx } from '@/lib/db';
-import { brl, dmy, hm, hours, num, pct, ratio, STATUS } from '@/lib/format';
+import { brl, dmy, hm, hours, pct, STATUS } from '@/lib/format';
 import { agendaStats, barberStats, insights, parsePeriod, revenueByBarber, revenueByDay, revenueByService, snapshot, today } from '@/lib/metrics';
 import { freeByBarber, occupancy, startTimes } from '@/lib/slots';
-import { GOALS } from '@/lib/goals';
 import { ActionForm, Submit } from '@/components/ui';
 import { Bars, Columns, PeriodNav } from '@/components/period';
-import { Funnel, sumFunnel } from '@/components/funnel';
 import { readNotifications } from '../fila/actions';
 
 async function todayData(tx: Tx, t: string, barberId: string | null, staff: boolean) {
@@ -37,10 +35,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     const base = { t, p, now: await todayData(tx, t, staff ? null : s.barberId, staff), todayStats: await agendaStats(tx, t, t) };
     if (admin) {
       const snap = await snapshot(tx, p, t);
-      const month = `${t.slice(0, 7)}-01`;
-      const goals = await tx.q(`select metric, target::float8 target from goals where month = $1::date`, [month]);
-      const monthSnap = goals.length ? (p.key === 'mes' ? snap : await snapshot(tx, parsePeriod({ p: 'mes' }, t), t)) : null;
-      return { ...base, snap, goals, monthSnap, insights: await insights(tx, p, snap, t), days: await revenueByDay(tx, p.from, p.to),
+      return { ...base, snap, insights: await insights(tx, p, snap, t), days: await revenueByDay(tx, p.from, p.to),
         byBarber: await revenueByBarber(tx, p.from, p.to), byService: await revenueByService(tx, p.from, p.to),
         todayRevenue: (await tx.one(`select coalesce(sum(amount), 0)::float8 v from revenues where received_on = current_date`))!.v as number };
     }
@@ -165,18 +160,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <div className="grid cols-2">
             <section className="card"><h2>Faturamento por {t.pro}</h2><Bars brass format={brl} rows={d.byBarber.map((b) => ({ label: b.name, value: b.total, hint: `${b.atendimentos} atend.` }))} /></section>
             <section className="card"><h2>Faturamento por serviço</h2><Bars brass format={brl} rows={d.byService.map((x) => ({ label: x.name, value: x.total, hint: `${x.atendimentos} atend.` }))} /></section>
-            <section className="card stack-sm"><div className="row between"><h2>De onde vêm os clientes</h2><Link href="/marketing">Marketing</Link></div>
-              <Bars format={(n) => `${num(n)} (${pct(ratio(n, snap.sources.reduce((a, x) => a + x.novos, 0)))})`} rows={snap.sources.filter((x) => x.novos > 0).map((x) => ({ label: x.name, value: x.novos, hint: brl(x.receita) }))} />
-            </section>
-            <section className="card"><h2>Funil de conversão</h2><Funnel f={sumFunnel(snap.sources)} /></section>
           </div>
 
-          {d.monthSnap && d.goals.length > 0 && (
-            <section className="card stack"><div className="row between"><h2>Metas do mês</h2><Link href="/metas">Ver metas</Link></div>
-              <div className="bars">{d.goals.map((g) => { const def = GOALS[g.metric], cur = def.value(d.monthSnap!); return (
-                <div className="bar-row" key={g.metric}><span>{def.label}: {def.fmt(cur)} de {def.fmt(g.target)}</span><strong className="num">{pct((cur / g.target) * 100)}</strong><progress value={Math.min(cur, g.target)} max={g.target} aria-label={def.label} /></div>); })}</div>
-            </section>
-          )}
         </>
       )}
 

@@ -54,15 +54,6 @@ export async function removeBlock(_: State, fd: FormData) {
   return run(STAFF, z.object({ id: v.id }), fd, async (d, tx) => { await tx.q(`delete from time_blocks where id = $1`, [d.id]); });
 }
 
-export async function addSource(_: State, fd: FormData) {
-  return run(ADMIN, z.object({ name: v.text('o nome', 40), kind: z.enum(['instagram', 'google', 'indicacao', 'outro']).default('outro') }), fd, async (d, tx) => {
-    await tx.q(`insert into marketing_sources (barbershop_id, name, kind) values (app_shop(), $1, $2)`, [d.name, d.kind]);
-  });
-}
-export async function toggleSource(_: State, fd: FormData) {
-  return run(ADMIN, z.object({ id: v.id }), fd, async (d, tx) => { await tx.q(`update marketing_sources set active = not active where id = $1`, [d.id]); });
-}
-
 // ── equipe ──
 export async function addUser(_: State, fd: FormData) {
   const schema = z.object({ name: v.text('o nome'), email: v.email, role: z.enum(['admin', 'barbeiro', 'recepcao']), barber_id: v.id.optional(), password: v.password });

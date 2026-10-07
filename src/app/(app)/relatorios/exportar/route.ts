@@ -22,13 +22,12 @@ export async function GET(req: NextRequest) {
     return {
       p, rows: await tx.q(
         `select to_char(a.starts_at, 'DD/MM/YYYY') dia, to_char(a.starts_at, 'HH24:MI') hora, c.name cliente, b.name barbeiro, sv.name servico,
-                coalesce(ms.name, '') origem, a.status, replace(a.price::text, '.', ',') valor
+                a.status, replace(a.price::text, '.', ',') valor
          from appointments a join clients c on c.id = a.client_id join barbers b on b.id = a.barber_id join services sv on sv.id = a.service_id
-         left join marketing_sources ms on ms.id = a.source_id
          where a.starts_at >= $1::date and a.starts_at < ($2::date + 1) order by a.starts_at`, [p.from, p.to]),
     };
   });
-  const head = ['Dia', 'Hora', 'Cliente', terms(s.kind).Pro, 'Serviço', 'Origem', 'Situação', 'Valor'];
-  const csv = '﻿' + [head, ...rows.map((r) => [r.dia, r.hora, r.cliente, r.barbeiro, r.servico, r.origem, r.status, r.valor])].map((l) => l.map(cell).join(';')).join('\r\n');
+  const head = ['Dia', 'Hora', 'Cliente', terms(s.kind).Pro, 'Serviço', 'Situação', 'Valor'];
+  const csv = '﻿' + [head, ...rows.map((r) => [r.dia, r.hora, r.cliente, r.barbeiro, r.servico, r.status, r.valor])].map((l) => l.map(cell).join(';')).join('\r\n');
   return new Response(csv, { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="atendimentos-${p.from}-a-${p.to}.csv"`, 'Cache-Control': 'no-store' } });
 }

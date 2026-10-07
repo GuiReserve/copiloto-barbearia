@@ -80,13 +80,6 @@ await q(`insert into expenses (barbershop_id, category, description, amount, spe
   ($1, 'produtos', 'Pomadas e lâminas', 420, current_date - 6), ($1, 'marketing', 'Impulsionamento', 150, current_date - 3)`, [shop]);
 await q(`insert into revenues (barbershop_id, category, description, amount, received_on) values
   ($1, 'produtos', 'Pomada modeladora', 45, current_date - 4), ($1, 'produtos', 'Óleo para barba', 60, current_date - 1)`, [shop]);
-for (let d = 29; d >= 0; d--) {
-  await q(`insert into marketing_metrics (barbershop_id, source_id, metric_date, views, interactions, clicks, leads, followers) values ($1,$2,current_date - $3::int,$4,$5,$6,$7,$8)`,
-    [shop, src('Instagram'), d, 250 + rnd(200), 20 + rnd(25), 6 + rnd(8), 1 + rnd(3), 1840 + (29 - d) * 6 + rnd(4)]);
-  await q(`insert into marketing_metrics (barbershop_id, source_id, metric_date, views, interactions, clicks, leads, calls, route_requests, site_visits) values ($1,$2,current_date - $3::int,$4,$5,$6,$7,$8,$9,$10)`,
-    [shop, src('Google'), d, 90 + rnd(60), 40 + rnd(30), 5 + rnd(6), 1 + rnd(2), rnd(3), 1 + rnd(4), rnd(4)]);
-}
-await q(`insert into goals (barbershop_id, metric, target, month) values ($1, 'faturamento', 20000, date_trunc('month', current_date)::date), ($1, 'novos_clientes', 15, date_trunc('month', current_date)::date)`, [shop]);
 // três pessoas na fila de hoje, fim de tarde
 for (const i of [0, 1, 2]) await q(`insert into waiting_list (barbershop_id, client_id, service_id, desired_date, window_start, window_end, flex_minutes) values ($1,$2,$3,current_date,'16:00','19:00',30)`, [shop, clients[i].id, services[0].id]);
 await c.query('commit');

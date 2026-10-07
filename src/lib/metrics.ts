@@ -132,32 +132,6 @@ export async function clientStats(tx: Tx, from: string, to: string) {
   };
 }
 
-/** Funil por origem: audiência registrada + o que de fato virou agenda, atendimento e dinheiro. */
-export async function funnel(tx: Tx, from: string, to: string) {
-  return tx.q(
-    `select s.id, s.name, s.kind,
-       coalesce(m.views, 0)::int views, coalesce(m.interactions, 0)::int interactions, coalesce(m.clicks, 0)::int clicks,
-       coalesce(m.leads, 0)::int leads, coalesce(m.calls, 0)::int calls, coalesce(m.route_requests, 0)::int route_requests,
-       coalesce(m.site_visits, 0)::int site_visits, m.followers_first, m.followers_last,
-       coalesce(a.agendamentos, 0)::int agendamentos, coalesce(a.atendimentos, 0)::int atendimentos,
-       coalesce(a.receita, 0)::float8 receita, coalesce(a.recorrentes, 0)::int recorrentes,
-       (select count(*) from clients c where c.source_id = s.id and c.created_at >= $1::date and c.created_at < ($2::date + 1))::int novos
-     from marketing_sources s
-     left join lateral (
-       select sum(views) views, sum(interactions) interactions, sum(clicks) clicks, sum(leads) leads, sum(calls) calls,
-              sum(route_requests) route_requests, sum(site_visits) site_visits,
-              (array_agg(followers order by metric_date) filter (where followers is not null))[1] followers_first,
-              (array_agg(followers order by metric_date desc) filter (where followers is not null))[1] followers_last
-       from marketing_metrics where source_id = s.id and metric_date between $1 and $2) m on true
-     left join lateral (
-       select count(*) filter (where status <> 'cancelado') agendamentos,
-              count(*) filter (where status = 'concluido') atendimentos,
-              sum(price) filter (where status = 'concluido') receita,
-              count(distinct client_id) filter (where status = 'concluido' and exists (
-                select from appointments p where p.client_id = ap.client_id and p.status = 'concluido' and p.id <> ap.id)) recorrentes
-       from appointments ap where ap.source_id = s.id and ap.${RANGE}) a on true
-     where s.active order by receita desc, novos desc, s.name`, [from, to]);
-}
 
 /** Indicadores individuais de um barbeiro, tirados dos próprios atendimentos. */
 export async function barberStats(tx: Tx, barberId: string, from: string, to: string, t: string): Promise<Row> {
@@ -184,13 +158,9 @@ export async function snapshot(tx: Tx, p: Period, t: string) {
   const clients = await clientStats(tx, p.from, p.to);
   const occ = await occupancy(tx, p.from, p.to < t ? p.to : t);       // o que já aconteceu
   const occFull = p.to > t ? await occupancy(tx, p.from, p.to) : occ; // período inteiro, inclui o que está agendado
-  const sources = await funnel(tx, p.from, p.to);
   const porHora = occ.avail > 0 ? fin.revenue / (occ.avail / 60) : 0;
-  const followers = sources.filter((s) => s.kind === 'instagram' && s.followers_last != null);
   return {
-    agenda, fin, clients, occ, occFull, sources, porHora,
-    seguidores: followers.reduce((n, s) => n + s.followers_last, 0),
-    seguidoresGanho: followers.reduce((n, s) => n + (s.followers_last - s.followers_first), 0),
+    agenda, fin, clients, occ, occFull, porHora,
     previsto: fin.revenue + agenda.previsto,
   };
 }
@@ -229,8 +199,6 @@ export async function insights(tx: Tx, p: Period, cur: Snapshot, t: string): Pro
     for (let h = 0; h <= 21; h++) { const sum = (by.get(h) ?? 0) + (by.get(h + 1) ?? 0) + (by.get(h + 2) ?? 0); if (sum > bestSum) { bestSum = sum; best = h; } }
     out.push({ text: `Seu horário mais rentável é entre ${best}h e ${best + 3}h (${money(bestSum)} no período).` });
   }
-  for (const s of cur.sources.filter((s) => s.novos > 0).sort((a, b) => b.novos - a.novos).slice(0, 2))
-    out.push({ text: `${s.name} trouxe ${s.novos} ${s.novos === 1 ? 'novo cliente' : 'novos clientes'} neste período.`, tone: 'up', href: '/marketing' });
   if (cur.clients.inativos) out.push({ text: `${cur.clients.inativos} ${cur.clients.inativos === 1 ? 'cliente está inativo' : 'clientes estão inativos'}. Vale mandar uma mensagem.`, href: '/clientes?classe=inativo' });
   if (cur.occ.busy > 0 && cur.occ.pct < 90 && cur.fin.revenue > 0) {
     const extra = (cur.fin.byCategory.atendimento / (cur.occ.busy / 60)) * ((cur.occ.avail * 0.1) / 60);

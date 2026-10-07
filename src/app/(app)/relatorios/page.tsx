@@ -18,7 +18,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   return (
     <div className="stack">
       <div className="page-head">
-        <div><h1>Relatório de faturamento</h1><p>{d.p.label}</p></div>
+        <div><p className="small"><a href="/financeiro">Financeiro</a></p><h1>Relatório de faturamento</h1><p>{d.p.label}</p></div>
         <a className="btn" href={`/relatorios/exportar?p=custom&de=${d.p.from}&ate=${d.p.to}`}>Baixar planilha (CSV)</a>
       </div>
       <PeriodNav period={d.p} path="/relatorios" />

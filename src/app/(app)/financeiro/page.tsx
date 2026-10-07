@@ -34,6 +34,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       <div className="page-head">
         <div><h1>Financeiro</h1><p>{d.p.label}</p></div>
         <div className="row">
+          <a className="btn" href={`/relatorios?p=custom&de=${d.p.from}&ate=${d.p.to}`}>Relatório e planilha</a>
           <Modal label="Lançar despesa" title="Nova despesa" className="btn btn-primary">
             <ActionForm action={addExpense}>
               <div className="form-2">

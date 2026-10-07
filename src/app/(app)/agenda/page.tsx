@@ -26,7 +26,7 @@ function Appointment({ a, staff, lk, t0 }: { a: any; staff: boolean; lk: any; t0
       <div className="item">
         <span className="when">{a.hour}</span>
         <span className="grow"><Link href={`/clientes/${a.client_id}`}><strong>{a.client}</strong></Link><br />
-          <span className="muted small">{a.service} · até {a.until} · {brl(a.price)}{a.source && ` · ${a.source}`}</span></span>
+          <span className="muted small">{a.service} · até {a.until} · {brl(a.price)}</span></span>
         <span className={`badge b-${a.status}`}>{STATUS[a.status]}</span>
       </div>
       {a.notes && <p className="muted small">{a.notes}</p>}
@@ -113,7 +113,6 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                   <label className="field"><span>Nome do novo cliente</span><input name="new_name" maxLength={80} /></label>
                   <label className="field"><span>Telefone</span><input name="new_phone" inputMode="tel" /></label>
                 </div>
-                <label className="field"><span>Como chegou até aqui</span><select name="source_id"><option value="">Usar a origem do cadastro</option>{d.lk.sources.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
                 <div className="form-2">
                   <label className="field"><span>Serviço</span><select name="service_id" required>{d.lk.services.map((x) => <option key={x.id} value={x.id}>{x.name}, {x.duration_min} min, {brl(x.price)}</option>)}</select></label>
                   <label className="field"><span>{t0.Pro}</span><select name="barber_id" defaultValue={preB} required>{d.lk.barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>

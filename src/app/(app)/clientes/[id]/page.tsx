@@ -44,7 +44,6 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         <div className="stat"><dt>Ticket médio</dt><dd>{brl(c.visits ? c.spent / c.visits : 0)}</dd></div>
         <div className="stat"><dt>Primeiro atendimento</dt><dd>{c.first_visit ? dmyFull(c.first_visit) : 'Ainda não veio'}</dd></div>
         <div className="stat"><dt>Último atendimento</dt><dd>{c.last_visit ? dmyFull(c.last_visit) : 'Ainda não veio'}</dd></div>
-        <div className="stat"><dt>Origem</dt><dd>{c.source ?? 'Não informada'}</dd></div>
       </dl>
       <div className="grid cols-main">
         <section className="card"><h2>Histórico</h2>

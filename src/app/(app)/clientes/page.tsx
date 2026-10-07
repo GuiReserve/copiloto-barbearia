@@ -23,7 +23,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   return (
     <div className="stack">
       <div className="page-head">
-        <div><h1>Clientes</h1><p>{staff ? 'Histórico, origem e frequência de cada cliente.' : 'Clientes que você atende.'}</p></div>
+        <div><h1>Clientes</h1><p>{staff ? 'Histórico e frequência de cada cliente.' : 'Clientes que você atende.'}</p></div>
         {staff && <Modal label="Novo cliente" title="Novo cliente" className="btn btn-primary"><ClientForm lk={lk} t={terms(s.kind)} /></Modal>}
       </div>
       <form className="row" action="/clientes">
@@ -38,13 +38,12 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
       <div className="card">
         {rows.length ? (
           <div className="table-wrap"><table>
-            <thead><tr><th>Cliente</th><th>Situação</th><th className="hide-sm">Origem</th><th>Última visita</th><th className="hide-sm right">Atendimentos</th><th className="hide-sm right">Total gasto</th></tr></thead>
+            <thead><tr><th>Cliente</th><th>Situação</th><th>Última visita</th><th className="hide-sm right">Atendimentos</th><th className="hide-sm right">Total gasto</th></tr></thead>
             <tbody>
               {rows.map((c) => (
                 <tr key={c.id}>
                   <td><Link href={`/clientes/${c.id}`}><strong>{c.name}</strong></Link><br /><span className="muted small">{c.phone ?? 'sem telefone'}</span></td>
                   <td><span className={`badge b-${c.classe}`}>{CLASSES[c.classe]}</span></td>
-                  <td className="hide-sm">{c.source ?? <span className="muted">não informada</span>}</td>
                   <td className="num">{c.last_visit ? dmyFull(c.last_visit) : <span className="muted">nunca</span>}</td>
                   <td className="num right hide-sm">{c.visits}</td>
                   <td className="num right hide-sm">{brl(c.spent)}</td>

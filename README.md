@@ -1,6 +1,6 @@
 # Copiloto da Barbearia
 
-SaaS multi-barbearia: agenda, fila de espera, encaixe automático, clientes, financeiro, marketing, metas e painel.
+Agenda, agendamento online, fila de espera com encaixe, clientes e financeiro, para barbearias e estúdios de sobrancelhas.
 Next.js 16 + Postgres (Neon). Dependências de produção: `next`, `react`, `pg`, `zod` e duas fontes. Custo inicial: zero (Neon Free + Vercel Hobby).
 
 ## Colocar no ar
@@ -61,7 +61,10 @@ Cada barbearia tem uma página pública (`/b/endereco-da-barbearia`, link em Con
 ## Como funciona o encaixe
 Cancelou um horário → o sistema procura na fila quem quer aquele dia, cabe na janela (com a tolerância), tem serviço que cabe no tempo livre e que o barbeiro faz. Ordem: prioridade → pediu o barbeiro → chegou primeiro. O convite gera a mensagem com um link; o cliente toca em "Quero este horário" e o agendamento é criado sozinho (ou o atendente confirma). Em Configurações dá para enviar automaticamente ao primeiro ou a todos.
 
-Mensagens: provedor `manual` (copiar / abrir WhatsApp, grátis). Para WhatsApp oficial, Instagram, Google, e-mail e pagamentos, implemente o adaptador em `src/integrations/`.
+Mensagens: provedor `manual` (copiar / abrir WhatsApp, grátis). Para WhatsApp oficial, e-mail e pagamentos, implemente o adaptador em `src/integrations/`.
 
-## Ainda não incluído (fase 2 do seu documento)
-WhatsApp oficial, importação automática de Instagram/Google (hoje os números são lançados à mão em Marketing), campanhas automáticas, IA e previsão de faturamento.
+## Fora do sistema, de propósito
+Relatórios de Instagram, Google e metas foram retirados para manter o sistema simples: agenda e finanças. As tabelas continuam no banco, sem uso.
+
+## WhatsApp automático
+Hoje a mensagem é gerada e o atendente toca em "Abrir no WhatsApp". Envio 100% automático exige a API oficial (WhatsApp Business Platform): conta Meta Business verificada, número dedicado, modelos de mensagem aprovados e cobrança por mensagem. O ponto de encaixe é `src/integrations/messaging`.
