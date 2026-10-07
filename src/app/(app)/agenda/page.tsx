@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { requireSession } from '@/lib/auth';
+import { terms, type Terms } from '@/lib/terms';
 import { withTenant } from '@/lib/db';
 import { addDays, addMonths, brl, DIAS_CURTOS, hm, isDate, isUuid, longDate, monthEnd, monthName, monthStart, STATUS, weekday } from '@/lib/format';
 import { freeByBarber, startTimes } from '@/lib/slots';
@@ -18,7 +19,7 @@ function Act({ id, status, label, cls = 'btn btn-sm' }: { id: string; status: st
   return <ActionForm action={setStatus} className=""><input type="hidden" name="id" value={id} /><input type="hidden" name="status" value={status} /><Submit className={cls}>{label}</Submit></ActionForm>;
 }
 
-function Appointment({ a, staff, lk }: { a: any; staff: boolean; lk: any }) {
+function Appointment({ a, staff, lk, t0 }: { a: any; staff: boolean; lk: any; t0: Terms }) {
   const open = ['agendado', 'confirmado', 'encaixado', 'em_atendimento'].includes(a.status);
   return (
     <div className="stack-sm">
@@ -42,7 +43,7 @@ function Appointment({ a, staff, lk }: { a: any; staff: boolean; lk: any }) {
               <div className="form-2">
                 <label className="field"><span>Dia</span><input type="date" name="date" defaultValue={a.date} required /></label>
                 <label className="field"><span>Horário</span><input type="time" name="time" defaultValue={a.hour} required /></label>
-                <label className="field"><span>Barbeiro</span><select name="barber_id" defaultValue={a.barber_id}>{lk.barbers.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+                <label className="field"><span>{t0.Pro}</span><select name="barber_id" defaultValue={a.barber_id}>{lk.barbers.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
                 <label className="field"><span>Serviço</span><select name="service_id" defaultValue={a.service_id}>{lk.services.map((x: any) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
               </div>
               <label className="field"><span>Valor (R$)</span><input name="price" inputMode="decimal" defaultValue={a.price.toFixed(2).replace('.', ',')} required /></label>
@@ -69,6 +70,7 @@ function Appointment({ a, staff, lk }: { a: any; staff: boolean; lk: any }) {
 
 export default async function AgendaPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const s = await requireSession();
+  const t0 = terms(s.kind);
   const sp = await searchParams;
   const view = ['semana', 'mes'].includes(sp.v) ? sp.v : 'dia';
   const staff = s.role !== 'barbeiro';
@@ -114,7 +116,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                 <label className="field"><span>Como chegou até aqui</span><select name="source_id"><option value="">Usar a origem do cadastro</option>{d.lk.sources.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
                 <div className="form-2">
                   <label className="field"><span>Serviço</span><select name="service_id" required>{d.lk.services.map((x) => <option key={x.id} value={x.id}>{x.name}, {x.duration_min} min, {brl(x.price)}</option>)}</select></label>
-                  <label className="field"><span>Barbeiro</span><select name="barber_id" defaultValue={preB} required>{d.lk.barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+                  <label className="field"><span>{t0.Pro}</span><select name="barber_id" defaultValue={preB} required>{d.lk.barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
                   <label className="field"><span>Dia</span><input type="date" name="date" defaultValue={date} required /></label>
                   <label className="field"><span>Horário</span><input type="time" name="time" defaultValue={preH} step={300} required /></label>
                 </div>
@@ -123,7 +125,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                 <Submit>Agendar</Submit>
                 <p className="small muted">Sem horário? <Link href={`/fila?novo=1${preC ? `&c=${preC}` : ''}`}>Colocar na fila de espera</Link></p>
               </ActionForm>
-            ) : <p>Antes de agendar, cadastre pelo menos um <Link href="/barbeiros">barbeiro</Link> e um <Link href="/servicos">serviço</Link>.</p>}
+            ) : <p>Antes de agendar, cadastre pelo menos {t0.umPro.split(' ')[0]} <Link href={t0.proPath}>{t0.pro}</Link> e um <Link href="/servicos">serviço</Link>.</p>}
           </Modal>
         )}
       </div>
@@ -150,7 +152,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
               <section className="card stack" key={b.id}>
                 <h2>{b.name}</h2>
                 <div className="list">
-                  {mine.map((a) => <Appointment key={a.id} a={a} staff={staff} lk={d.lk} />)}
+                  {mine.map((a) => <Appointment key={a.id} a={a} staff={staff} lk={d.lk} t0={t0} />)}
                   {!mine.length && <p className="empty">{works ? 'Nenhum agendamento neste dia.' : 'Não atende neste dia.'}</p>}
                 </div>
                 {chips.length > 0 && (
@@ -166,7 +168,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
               </section>
             );
           })}
-          {!d.barbers.length && <div className="card"><p className="empty">Cadastre os <Link href="/barbeiros">barbeiros</Link> para montar a agenda.</p></div>}
+          {!d.barbers.length && <div className="card"><p className="empty">Cadastre {t0.osPros.split(' ')[0]} <Link href={t0.proPath}>{t0.pros}</Link> para montar a agenda.</p></div>}
         </div>
       )}
 

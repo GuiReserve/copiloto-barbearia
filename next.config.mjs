@@ -4,6 +4,9 @@ const nextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ['pg'],
   experimental: { serverActions: { bodySizeLimit: '200kb' } },
+  async rewrites() {
+    return [{ source: '/profissionais', destination: '/barbeiros' }];
+  },
   async headers() {
     // A CSP (com nonce por requisição) é definida em src/proxy.ts
     return [{

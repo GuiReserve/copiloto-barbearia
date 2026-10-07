@@ -45,9 +45,15 @@ Verifique você mesmo, em um banco de teste: `npm run test:security` (39 verific
 ### O que fica por sua conta
 - Ative 2FA nas contas Neon, Vercel e GitHub: quem entra nelas entra no banco.
 - O RLS protege contra falhas do app, mas quem obtiver a `DATABASE_URL` do app pode se passar por qualquer barbearia. Trate-a como segredo e troque a senha se vazar (`npm run db:migrate` com outra `APP_DB_PASSWORD`).
-- Não há 2FA de usuário, recuperação de senha por e-mail nem verificação de e-mail no cadastro (sem provedor de e-mail no custo zero). O admin redefine senhas da equipe em Configurações.
+- Não há 2FA de usuário, recuperação de senha por e-mail nem verificação de e-mail no cadastro (sem provedor de e-mail no custo zero). A recuperação é por código gerado em Configurações.
 - LGPD: o sistema guarda nome, telefone e nascimento de clientes. Tenha política de privacidade; o admin pode excluir clientes sem histórico.
 - Antes de vender para terceiros, contrate um pentest independente. Nenhum sistema é "à prova de invasão".
+
+## Tipos de negócio
+O mesmo sistema atende barbearias e estúdios de design de sobrancelhas. O tipo é escolhido no cadastro (`/cadastro?tipo=sobrancelha`) e muda o vocabulário (profissional, estúdio), as mensagens padrão e a identidade visual. Para criar outro tipo, acrescente uma entrada em `src/lib/terms.ts` e um bloco de cores em `globals.css`.
+
+## Senhas
+Login e cadastro têm "Mostrar senha" e confirmação. Sem provedor de e-mail, a recuperação usa um código gerado em Configurações (mostrado uma vez, uso único) na tela "Esqueci a senha"; admins também redefinem senhas da equipe.
 
 ## Agendamento online
 Cada barbearia tem uma página pública (`/b/endereco-da-barbearia`, link em Configurações). O cliente escolhe serviço, barbeiro, dia e horário livre e informa nome e WhatsApp; sem vaga, entra na fila de espera. Proteções: 6 pedidos por hora por conexão, no máximo 2 horários futuros por telefone, janela de antecedência configurável, e pode ser desligado em Configurações. Não há confirmação por SMS: alguém mal-intencionado ainda pode marcar horários falsos dentro desses limites.

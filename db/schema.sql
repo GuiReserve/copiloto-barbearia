@@ -359,6 +359,8 @@ create index if not exists audit_shop on audit_log(barbershop_id, created_at des
 
 -- agendamento online: endereço público da barbearia e regras
 alter table barbershops add column if not exists slug text;
+alter table barbershops add column if not exists kind text not null default 'barbearia';  -- barbearia | sobrancelha
+alter table users add column if not exists recovery_hash bytea;  -- sha256 do código de recuperação (uso único)
 create unique index if not exists barbershops_slug on barbershops(slug);
 alter table settings add column if not exists public_booking boolean not null default true;
 alter table settings add column if not exists booking_days int not null default 14;
@@ -512,6 +514,8 @@ $$;
 create or replace function auth_login_record(p_email text, p_ip text, p_success boolean) returns void
 language sql security definer set search_path = public, pg_temp as $$
   insert into login_attempts (email, ip, success) values (lower(left(p_email, 200)), p_ip, p_success);
+  -- entrou com a senha certa: zera as tentativas erradas daquele e-mail
+  delete from login_attempts where p_success and email = lower(p_email) and not success;
   delete from login_attempts where created_at < now() - interval '7 days';
 $$;
 
@@ -527,14 +531,15 @@ language sql security definer set search_path = public, pg_temp as $$
   values (p_token_hash, p_user, p_ip, left(p_ua, 300), now() + interval '7 days');
 $$;
 
+drop function if exists auth_session_get(bytea);
 create or replace function auth_session_get(p_token_hash bytea)
-returns table (user_id uuid, barbershop_id uuid, role text, barber_id uuid, user_name text, shop_name text, timezone text)
+returns table (user_id uuid, barbershop_id uuid, role text, barber_id uuid, user_name text, shop_name text, timezone text, kind text)
 language plpgsql security definer set search_path = public, pg_temp as $$
 begin
   update sessions set last_seen = now()
     where token_hash = p_token_hash and expires_at > now() and last_seen < now() - interval '5 minutes';
   return query
-    select u.id, u.barbershop_id, u.role, u.barber_id, u.name, b.name, st.timezone
+    select u.id, u.barbershop_id, u.role, u.barber_id, u.name, b.name, st.timezone, b.kind
     from sessions s join users u on u.id = s.user_id and u.active
     join barbershops b on b.id = u.barbershop_id
     join settings st on st.barbershop_id = b.id
@@ -578,6 +583,55 @@ begin
     (v_shop, 'inativo', 'Fala, {{cliente}}! Faz um tempinho que não aparece por aqui. Que tal marcar seu próximo corte?');
   insert into audit_log (barbershop_id, user_id, action, ip) values (v_shop, v_user, 'barbearia.criada', p_ip);
   return v_user;
+end $$;
+
+-- cadastro com tipo de negócio: mesmas regras do auth_register, com mensagens no tom do estúdio
+create or replace function auth_register_v2(p_shop text, p_name text, p_email text, p_hash text, p_ip text, p_kind text)
+returns uuid language plpgsql security definer set search_path = public, pg_temp as $$
+declare v_user uuid; v_shop uuid;
+begin
+  if p_kind not in ('barbearia', 'sobrancelha') then raise exception 'tipo inválido' using errcode = 'P0001'; end if;
+  v_user := auth_register(p_shop, p_name, p_email, p_hash, p_ip);
+  if v_user is null or p_kind = 'barbearia' then return v_user; end if;
+  select barbershop_id into v_shop from users where id = v_user;
+  update barbershops set kind = p_kind where id = v_shop;
+  update message_templates t set body = x.body from (values
+    ('confirmacao', 'Oi, {{cliente}}! Seu horário no {{estudio}} está confirmado para {{data}} às {{horario}}.'),
+    ('lembrete', 'Oi, {{cliente}}! Passando para lembrar do seu horário hoje às {{horario}}. Venha sem maquiagem na região das sobrancelhas. Te esperamos!'),
+    ('cancelamento', 'Oi, {{cliente}}! Seu horário das {{horario}} foi liberado. Se quiser reagendar, encontramos outro horário para você.'),
+    ('encaixe', 'Oi, {{cliente}}! Abriu um horário {{data}} às {{horario}} com {{profissional}}. Você está na nossa fila de espera. Quer aproveitar? Responda por aqui: {{link}}'),
+    ('inativo', 'Oi, {{cliente}}! Já faz um tempinho desde o seu último design. Que tal agendar a manutenção das sobrancelhas?')
+  ) x(kind, body) where t.barbershop_id = v_shop and t.kind = x.kind;
+  return v_user;
+end $$;
+
+-- código de recuperação: o dono gera em Configurações e guarda; vale uma vez
+create or replace function auth_set_recovery(p_code_hash bytea) returns boolean
+language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  update users set recovery_hash = p_code_hash where id = app_user() and barbershop_id = app_shop();
+  return found;
+end $$;
+
+create or replace function auth_has_recovery() returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select recovery_hash is not null from users where id = app_user() and barbershop_id = app_shop()
+$$;
+
+create or replace function auth_recover(p_email text, p_code_hash bytea, p_new_hash text, p_ip text) returns boolean
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare v_user uuid;
+begin
+  select id into v_user from users where email = lower(p_email) and active and recovery_hash = p_code_hash;
+  if v_user is null then
+    insert into login_attempts (email, ip, success) values (lower(left(p_email, 200)), p_ip, false);
+    return false;
+  end if;
+  update users set password_hash = p_new_hash, recovery_hash = null where id = v_user;
+  delete from sessions where user_id = v_user;
+  delete from login_attempts where email = lower(p_email) and not success;
+  insert into audit_log (barbershop_id, user_id, action, ip) select barbershop_id, id, 'usuario.senha_recuperada_por_codigo', p_ip from users where id = v_user;
+  return true;
 end $$;
 
 -- hash da senha do próprio usuário logado (para conferir a senha atual)
@@ -702,10 +756,11 @@ language sql stable security definer set search_path = public, pg_temp as $$
     and ap.starts_at < ((p_date + 1)::timestamp at time zone st.timezone)
 $$;
 
+drop function if exists public_shop(text);
 create or replace function public_shop(p_slug text)
-returns table (id uuid, name text, phone text, timezone text, public_booking boolean, booking_days int, slot_minutes int)
+returns table (id uuid, name text, phone text, timezone text, public_booking boolean, booking_days int, slot_minutes int, kind text)
 language sql stable security definer set search_path = public, pg_temp as $$
-  select b.id, b.name, st.phone, st.timezone, st.public_booking, st.booking_days, st.slot_minutes
+  select b.id, b.name, st.phone, st.timezone, st.public_booking, st.booking_days, st.slot_minutes, b.kind
   from barbershops b join settings st on st.barbershop_id = b.id where b.slug = p_slug
 $$;
 
@@ -798,6 +853,7 @@ grant execute on function
   auth_login_allowed(text, text), auth_login_record(text, text, boolean), auth_user_for_login(text),
   auth_session_create(uuid, bytea, text, text), auth_session_get(bytea), auth_session_delete(bytea),
   auth_register(text, text, text, text, text), auth_own_hash(), auth_set_password(uuid, text, bytea),
+  auth_register_v2(text, text, text, text, text, text), auth_set_recovery(bytea), auth_has_recovery(), auth_recover(text, bytea, text, text),
   offer_accept(uuid), offer_public_get(bytea), offer_public_respond(bytea, boolean),
   day_busy(date), public_shop(text), public_book(uuid, uuid, uuid, date, time, text, text, text),
   public_wait(uuid, uuid, uuid, date, time, time, text, text, text),

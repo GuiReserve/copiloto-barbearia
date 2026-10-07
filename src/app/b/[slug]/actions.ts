@@ -16,8 +16,8 @@ const person = {
 };
 const MSG: Record<string, string> = {
   invalido: 'Não foi possível marcar esse horário. Volte e escolha de novo.',
-  limite: 'Muitos pedidos seguidos a partir desta conexão. Tente mais tarde ou fale com a barbearia.',
-  muitos: 'Você já tem dois horários marcados. Para marcar outro, fale com a barbearia.',
+  limite: 'Muitos pedidos seguidos a partir desta conexão. Tente mais tarde ou entre em contato pelo telefone.',
+  muitos: 'Você já tem dois horários marcados. Para marcar outro, entre em contato pelo telefone.',
   ocupado: 'Alguém acabou de pegar esse horário. Escolha outro.',
 };
 const fields = (fd: FormData) => Object.fromEntries([...fd].filter(([k, x]) => !k.startsWith('$') && x !== ''));

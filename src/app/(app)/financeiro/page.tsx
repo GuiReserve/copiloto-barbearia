@@ -1,4 +1,5 @@
 import { requireSession, ADMIN } from '@/lib/auth';
+import { terms } from '@/lib/terms';
 import { withTenant } from '@/lib/db';
 import { brl, CATEGORIAS, dmy, hours, pct } from '@/lib/format';
 import { parsePeriod, revenueByBarber, revenueByService, snapshot, today } from '@/lib/metrics';
@@ -13,6 +14,7 @@ function Remove({ id, kind, label = 'Excluir' }: { id: string; kind: string; lab
 
 export default async function FinancePage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const s = await requireSession(ADMIN);
+  const t = terms(s.kind);
   const sp = await searchParams;
   const d = await withTenant(s, async (tx) => {
     const t = await today(tx), p = parsePeriod(sp, t);
@@ -60,7 +62,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
                 <label className="field"><span>Tipo</span><select name="category"><option value="produtos">Produtos</option><option value="outros">Outros</option></select></label>
                 <label className="field"><span>Valor (R$)</span><input name="amount" inputMode="decimal" required /></label>
                 <label className="field"><span>Data</span><input type="date" name="date" defaultValue={d.t} required /></label>
-                <label className="field"><span>Quem vendeu</span><select name="barber_id"><option value="">Barbearia</option>{d.barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+                <label className="field"><span>Quem vendeu</span><select name="barber_id"><option value="">{t.Negocio}</option>{d.barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
               </div>
               <label className="field"><span>Descrição</span><input name="description" maxLength={120} /></label>
               <Submit>Salvar receita</Submit>
@@ -81,7 +83,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       <p className="small muted">Lucro estimado = receita − despesas lançadas − custos fixos rateados pelos dias do período − comissões calculadas ({brl(fin.commissions)}).</p>
 
       <div className="grid cols-2">
-        <section className="card"><h2>Receita por barbeiro</h2><Bars brass format={brl} rows={d.byBarber.map((b) => ({ label: b.name, value: b.total, hint: `${b.atendimentos} atend.` }))} /></section>
+        <section className="card"><h2>Receita por {t.pro}</h2><Bars brass format={brl} rows={d.byBarber.map((b) => ({ label: b.name, value: b.total, hint: `${b.atendimentos} atend.` }))} /></section>
         <section className="card"><h2>Receita por serviço</h2><Bars brass format={brl} rows={d.byService.map((x) => ({ label: x.name, value: x.total, hint: `${x.atendimentos} atend. · ${brl(x.por_hora)}/h` }))} /></section>
         <section className="card"><h2>Receita por tipo</h2><Bars brass format={brl} rows={[['Atendimentos', fin.byCategory.atendimento], ['Produtos', fin.byCategory.produtos], ['Outros', fin.byCategory.outros]].filter(([, x]) => (x as number) > 0).map(([label, value]) => ({ label: label as string, value: value as number }))} /></section>
         <section className="card"><h2>Despesas por categoria</h2><Bars format={brl} rows={d.byCat.map((c) => ({ label: CATEGORIAS[c.category], value: c.total }))} /></section>

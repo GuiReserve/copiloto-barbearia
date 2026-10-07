@@ -1,4 +1,5 @@
 import { requireSession, ADMIN } from '@/lib/auth';
+import { terms } from '@/lib/terms';
 import { withTenant } from '@/lib/db';
 import { brl, dmy, hours, pct } from '@/lib/format';
 import { parsePeriod, revenueByBarber, revenueByDay, revenueByService, snapshot, today } from '@/lib/metrics';
@@ -6,6 +7,7 @@ import { Columns, PeriodNav } from '@/components/period';
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const s = await requireSession(ADMIN);
+  const t = terms(s.kind);
   const sp = await searchParams;
   const d = await withTenant(s, async (tx) => {
     const t = await today(tx), p = parsePeriod(sp, t);
@@ -41,8 +43,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <p className="small muted">Considera o expediente até hoje. Valor da hora = faturamento ÷ horas de expediente.</p>
       </section>
       <div className="grid cols-2">
-        <section className="card"><h2>Por barbeiro</h2>
-          <div className="table-wrap"><table><thead><tr><th>Barbeiro</th><th className="right">Atendimentos</th><th className="right">Faturamento</th><th className="right">Ticket</th></tr></thead>
+        <section className="card"><h2>Por {t.pro}</h2>
+          <div className="table-wrap"><table><thead><tr><th>{t.Pro}</th><th className="right">Atendimentos</th><th className="right">Faturamento</th><th className="right">Ticket</th></tr></thead>
             <tbody>{d.byBarber.map((b) => <tr key={b.id}><td>{b.name}</td><td className="num right">{b.atendimentos}</td><td className="num right">{brl(b.total)}</td><td className="num right">{brl(b.atendimentos ? b.total / b.atendimentos : 0)}</td></tr>)}</tbody></table></div>
         </section>
         <section className="card"><h2>Por serviço</h2>

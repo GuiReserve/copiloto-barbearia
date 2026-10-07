@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { requireSession } from '@/lib/auth';
+import { terms } from '@/lib/terms';
 import { withTenant } from '@/lib/db';
 import { brl, dmyFull } from '@/lib/format';
 import { CLASSES, CLIENT_STATS } from '@/lib/metrics';
@@ -23,7 +24,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
     <div className="stack">
       <div className="page-head">
         <div><h1>Clientes</h1><p>{staff ? 'Histórico, origem e frequência de cada cliente.' : 'Clientes que você atende.'}</p></div>
-        {staff && <Modal label="Novo cliente" title="Novo cliente" className="btn btn-primary"><ClientForm lk={lk} /></Modal>}
+        {staff && <Modal label="Novo cliente" title="Novo cliente" className="btn btn-primary"><ClientForm lk={lk} t={terms(s.kind)} /></Modal>}
       </div>
       <form className="row" action="/clientes">
         <input name="q" defaultValue={q} placeholder="Buscar por nome ou telefone" aria-label="Buscar" className="grow" />

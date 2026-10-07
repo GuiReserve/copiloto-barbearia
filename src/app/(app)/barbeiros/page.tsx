@@ -1,4 +1,5 @@
 import { requireSession, ADMIN } from '@/lib/auth';
+import { terms, type Terms } from '@/lib/terms';
 import { withTenant } from '@/lib/db';
 import { brl, hours, pct } from '@/lib/format';
 import { barberStats, parsePeriod, today } from '@/lib/metrics';
@@ -7,12 +8,12 @@ import { HoursForm } from '@/components/hours';
 import { PeriodNav } from '@/components/period';
 import { clearBarberHours, saveBarber, saveHours, toggleBarber } from './actions';
 
-function Form({ b, services }: { b?: any; services: any[] }) {
+function Form({ b, services, t }: { b?: any; services: any[]; t: Terms }) {
   return (
     <ActionForm action={saveBarber}>
       {b && <input type="hidden" name="id" value={b.id} />}
       <label className="field"><span>Nome</span><input name="name" defaultValue={b?.name} required maxLength={80} /></label>
-      <label className="field"><span>Especialidades</span><input name="specialties" defaultValue={b?.specialties ?? ''} maxLength={200} placeholder="Degradê, barba desenhada" /></label>
+      <label className="field"><span>Especialidades</span><input name="specialties" defaultValue={b?.specialties ?? ''} maxLength={200} placeholder={t.exEspecialidades} /></label>
       <label className="field"><span>Link da foto</span><input name="photo_url" type="url" defaultValue={b?.photo_url ?? ''} placeholder="https://" /></label>
       <div className="form-2">
         <label className="field"><span>Comissão (%)</span><input name="commission_pct" inputMode="decimal" defaultValue={b?.commission_pct ?? 0} /></label>
@@ -24,13 +25,14 @@ function Form({ b, services }: { b?: any; services: any[] }) {
           {!services.length && <small className="muted">Cadastre os serviços para marcar aqui.</small>}
         </div>
       </fieldset>
-      <Submit>Salvar barbeiro</Submit>
+      <Submit>Salvar</Submit>
     </ActionForm>
   );
 }
 
 export default async function BarbersPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const s = await requireSession(ADMIN);
+  const t = terms(s.kind);
   const sp = await searchParams;
   const data = await withTenant(s, async (tx) => {
     const t = await today(tx), period = parsePeriod(sp, t);
@@ -43,11 +45,11 @@ export default async function BarbersPage({ searchParams }: { searchParams: Prom
   return (
     <div className="stack">
       <div className="page-head">
-        <div><h1>Barbeiros</h1><p>{data.period.label}</p></div>
-        <Modal label="Novo barbeiro" title="Novo barbeiro" className="btn btn-primary"><Form services={data.services} /></Modal>
+        <div><h1>{t.Pros}</h1><p>{data.period.label}</p></div>
+        <Modal label={t.novoPro} title={t.novoPro} className="btn btn-primary"><Form services={data.services} t={t} /></Modal>
       </div>
-      <PeriodNav period={data.period} path="/barbeiros" />
-      {!data.barbers.length && <div className="card"><p className="empty">Nenhum barbeiro ainda. Cadastre quem atende para liberar a agenda.</p></div>}
+      <PeriodNav period={data.period} path={t.proPath} />
+      {!data.barbers.length && <div className="card"><p className="empty">Ninguém cadastrado ainda. Cadastre quem atende para liberar a agenda.</p></div>}
       <div className="grid cols-2">
         {data.barbers.map((b) => {
           const st = data.stats[b.id];
@@ -60,12 +62,12 @@ export default async function BarbersPage({ searchParams }: { searchParams: Prom
                   <div><h2>{b.name}</h2><p className="muted small">{b.specialties || 'Sem especialidades informadas'} · comissão {b.commission_pct}%{!b.active && ' · inativo'}</p></div>
                 </div>
                 <div className="row">
-                  <Modal label="Editar" title={b.name} className="btn btn-sm"><Form b={b} services={data.services} /></Modal>
+                  <Modal label="Editar" title={b.name} className="btn btn-sm"><Form b={b} services={data.services} t={t} /></Modal>
                   <Modal label="Horários" title={`Horários de ${b.name}`} className="btn btn-sm">
                     <div className="stack">
-                      <p className="muted small">{own.length ? 'Este barbeiro tem horário próprio. Dias desmarcados são folga.' : 'Hoje segue o horário da barbearia. Marque os dias para criar um horário próprio.'}</p>
+                      <p className="muted small">{own.length ? 'Tem horário próprio. Dias desmarcados são folga.' : `Hoje segue o horário ${t.doNegocio}. Marque os dias para criar um horário próprio.`}</p>
                       <HoursForm action={saveHours} rows={own as any} barberId={b.id} />
-                      {own.length > 0 && <ActionForm action={clearBarberHours}><input type="hidden" name="barber_id" value={b.id} /><Submit className="btn btn-sm">Voltar ao horário da barbearia</Submit></ActionForm>}
+                      {own.length > 0 && <ActionForm action={clearBarberHours}><input type="hidden" name="barber_id" value={b.id} /><Submit className="btn btn-sm">Voltar ao horário {t.doNegocio}</Submit></ActionForm>}
                     </div>
                   </Modal>
                   <ActionForm action={toggleBarber} className=""><input type="hidden" name="id" value={b.id} /><Submit className="btn btn-sm">{b.active ? 'Desativar' : 'Reativar'}</Submit></ActionForm>

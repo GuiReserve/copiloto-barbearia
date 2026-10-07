@@ -2,8 +2,9 @@ import { ActionForm, Submit } from './ui';
 import { saveClient } from '@/app/(app)/clientes/actions';
 
 export type Lookups = { barbers: any[]; services: any[]; sources: any[] };
+import type { Terms } from '@/lib/terms';
 
-export function ClientForm({ c, lk }: { c?: any; lk: Lookups }) {
+export function ClientForm({ c, lk, t }: { c?: any; lk: Lookups; t: Terms }) {
   return (
     <ActionForm action={saveClient}>
       {c && <input type="hidden" name="id" value={c.id} />}
@@ -14,7 +15,7 @@ export function ClientForm({ c, lk }: { c?: any; lk: Lookups }) {
         <label className="field"><span>E-mail</span><input name="email" type="email" defaultValue={c?.email ?? ''} /></label>
         <label className="field"><span>Nascimento</span><input name="birth_date" type="date" defaultValue={c?.birth_date ?? ''} /></label>
         <label className="field"><span>Instagram</span><input name="instagram" defaultValue={c?.instagram ?? ''} placeholder="@usuario" /></label>
-        <label className="field"><span>Barbeiro preferido</span><select name="preferred_barber_id" defaultValue={c?.preferred_barber_id ?? ''}><option value="">Tanto faz</option>{lk.barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+        <label className="field"><span>{t.proPreferido}</span><select name="preferred_barber_id" defaultValue={c?.preferred_barber_id ?? ''}><option value="">Tanto faz</option>{lk.barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
       </div>
       <label className="field"><span>Serviço preferido</span><select name="preferred_service_id" defaultValue={c?.preferred_service_id ?? ''}><option value="">Nenhum</option>{lk.services.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
       <label className="field"><span>Observações</span><textarea name="notes" defaultValue={c?.notes ?? ''} maxLength={1000} /></label>

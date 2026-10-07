@@ -16,7 +16,7 @@ export function ActionForm({ action, children, className = 'form', done }: { act
   const [state, dispatch, pending] = useActionState(action, null);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
-    if (state?.ok) { ref.current?.reset(); ref.current?.closest('dialog')?.close(); }
+    if (state?.ok && !state.info) { ref.current?.reset(); ref.current?.closest('dialog')?.close(); }
   }, [state]);
   return (
     <form ref={ref} className={className} onSubmit={(e) => {
@@ -28,6 +28,7 @@ export function ActionForm({ action, children, className = 'form', done }: { act
       <Pending.Provider value={pending}>{children}</Pending.Provider>
       {state?.error && <p role="alert" className="form-error">{state.error}</p>}
       {state?.ok && done && <p role="status" className="form-ok">{done}</p>}
+      {state?.ok && state.info && <p role="status" className="msg code">{state.info}</p>}
     </form>
   );
 }
@@ -51,6 +52,17 @@ export function Modal({ label, title, children, className = 'btn', open = false 
         <div className="modal-body">{children}</div>
       </dialog>
     </>
+  );
+}
+
+/** Campo de senha com "mostrar": evita cadastrar ou digitar uma senha diferente da que a pessoa pensa. */
+export function PasswordInput({ name, autoComplete, minLength }: { name: string; autoComplete: string; minLength?: number }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span className="pw">
+      <input name={name} type={show ? 'text' : 'password'} autoComplete={autoComplete} minLength={minLength} required autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+      <button type="button" className="btn btn-sm" aria-pressed={show} onClick={() => setShow(!show)}>{show ? 'Ocultar' : 'Mostrar'}</button>
+    </span>
   );
 }
 

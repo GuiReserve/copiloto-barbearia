@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireSession, STAFF } from '@/lib/auth';
+import { terms } from '@/lib/terms';
 import { withTenant } from '@/lib/db';
 import { brl, isUuid } from '@/lib/format';
 import { today } from '@/lib/metrics';
@@ -51,7 +52,7 @@ export default async function FreedSlotPage({ params }: { params: Promise<{ id: 
               <div className="item" key={c.id}>
                 <span className="when">{i + 1}º</span>
                 <span className="grow"><strong>{c.name}</strong>{c.priority > 0 && <span className="badge b-vip"> prioridade</span>}<br />
-                  <span className="muted small">{c.service}, {c.duration_min} min, {brl(c.price)} · pode das {c.window_start.slice(0, 5)} às {c.window_end.slice(0, 5)}{c.pediu_barbeiro && ' · pediu este barbeiro'}</span></span>
+                  <span className="muted small">{c.service}, {c.duration_min} min, {brl(c.price)} · pode das {c.window_start.slice(0, 5)} às {c.window_end.slice(0, 5)}{c.pediu_barbeiro && ` · pediu ${terms(s.kind).estePro}`}</span></span>
                 {(!c.offer_status || c.offer_status === 'expirou')
                   ? <ActionForm action={offerSlot} className=""><input type="hidden" name="slot" value={slot.id} /><input type="hidden" name="mode" value="um" /><input type="hidden" name="waiting_id" value={c.id} /><Submit className="btn btn-sm">Enviar encaixe</Submit></ActionForm>
                   : <span className={`badge b-${c.offer_status}`}>{c.offer_status === 'enviado' ? 'Convite enviado' : 'Recusou'}</span>}

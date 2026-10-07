@@ -3,12 +3,14 @@ import { z } from 'zod';
 import { ADMIN, ALL, STAFF } from '@/lib/auth';
 import { AppError, audit, run, v, type State } from '@/lib/action';
 import { hashPassword, verifyPassword } from '@/lib/password';
+import { hashToken } from '@/lib/auth';
+import { randomBytes } from 'node:crypto';
 import { TEMPLATE_KINDS } from '@/integrations/messaging';
 import { TIMEZONES } from '@/lib/format';
 
 export async function saveShop(_: State, fd: FormData) {
   const schema = z.object({
-    name: v.text('o nome da barbearia'), phone: v.phone,
+    name: v.text('o nome'), phone: v.phone,
     slug: z.string('Informe o endereço público.').trim().toLowerCase().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Endereço público: use só letras minúsculas, números e hífen.').min(3, 'Endereço público: mínimo 3 caracteres.').max(40),
     public_booking: z.string().optional(), booking_days: v.int('os dias de antecedência', 1, 60), timezone: z.enum(TIMEZONES, 'Fuso inválido.'),
     slot_minutes: v.int('o intervalo da agenda', 5, 120), offer_expiry_minutes: v.int('a validade do convite', 5, 1440),
@@ -65,7 +67,7 @@ export async function toggleSource(_: State, fd: FormData) {
 export async function addUser(_: State, fd: FormData) {
   const schema = z.object({ name: v.text('o nome'), email: v.email, role: z.enum(['admin', 'barbeiro', 'recepcao']), barber_id: v.id.optional(), password: v.password });
   return run(ADMIN, schema, fd, async (d, tx, s) => {
-    if (d.role === 'barbeiro' && !d.barber_id) throw new AppError('Escolha qual barbeiro este usuário é.');
+    if (d.role === 'barbeiro' && !d.barber_id) throw new AppError('Escolha a qual profissional este usuário corresponde.');
     const r = await tx.one(
       `insert into users (barbershop_id, barber_id, name, email, password_hash, role) values (app_shop(), $1,$2,$3,$4,$5)
        on conflict (email) do nothing returning id`,
@@ -97,5 +99,16 @@ export async function changeOwnPassword(_: State, fd: FormData) {
     if (!(await verifyPassword(d.current, h?.h))) throw new AppError('A senha atual não confere.');
     await tx.q(`select auth_set_password($1, $2, $3)`, [s.userId, await hashPassword(d.password), s.tokenHash]);
     await audit(tx, s, 'usuario.senha_alterada', 'user', s.userId);
+  });
+}
+
+/** Gera o código de recuperação (100 bits). O banco guarda só o hash; o código é mostrado uma vez. */
+export async function newRecoveryCode(_: State, fd: FormData) {
+  return run(ALL, z.object({}), fd, async (_d, tx, s) => {
+    const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem 0/O e 1/I para não confundir
+    const raw = [...randomBytes(20)].map((b) => abc[b % 32]).join('');
+    await tx.q(`select auth_set_recovery($1)`, [hashToken(raw)]);
+    await audit(tx, s, 'usuario.codigo_de_recuperacao_gerado', 'user', s.userId);
+    return { info: raw.match(/.{4}/g)!.join('-') };
   });
 }

@@ -4,11 +4,12 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createHash, randomBytes } from 'node:crypto';
 import { sys } from './db';
+import type { Kind } from './terms';
 
 export type Role = 'admin' | 'barbeiro' | 'recepcao';
 export type Session = {
   userId: string; shopId: string; role: Role; barberId: string | null;
-  name: string; shopName: string; tz: string; tokenHash: Buffer;
+  name: string; shopName: string; tz: string; tokenHash: Buffer; kind: Kind;
 };
 
 const PROD = process.env.NODE_ENV === 'production';
@@ -29,7 +30,7 @@ export const getSession = cache(async (): Promise<Session | null> => {
   if (!r) return null;
   return {
     userId: r.user_id, shopId: r.barbershop_id, role: r.role, barberId: r.barber_id,
-    name: r.user_name, shopName: r.shop_name, tz: r.timezone, tokenHash,
+    name: r.user_name, shopName: r.shop_name, tz: r.timezone, tokenHash, kind: r.kind === 'sobrancelha' ? 'sobrancelha' : 'barbearia',
   };
 });
 
@@ -51,7 +52,8 @@ export async function endSession() {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   if (token) await sys('select auth_session_delete($1)', [sha256(token)]);
-  jar.delete(COOKIE);
+  // apagar um cookie __Host- exige os mesmos atributos (Secure, Path=/), senão o navegador ignora
+  jar.set(COOKIE, '', { httpOnly: true, secure: PROD, sameSite: 'lax', path: '/', maxAge: 0 });
 }
 
 export const hashToken = sha256;

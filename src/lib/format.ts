@@ -35,7 +35,7 @@ export const CATEGORIAS: Record<string, string> = {
   aluguel: 'Aluguel', agua: 'Água', energia: 'Energia', internet: 'Internet', salarios: 'Salários', comissao: 'Comissão',
   produtos: 'Produtos', marketing: 'Marketing', sistemas: 'Sistemas', outros: 'Outros', atendimento: 'Atendimento',
 };
-export const ROLES: Record<string, string> = { admin: 'Admin', barbeiro: 'Barbeiro', recepcao: 'Recepção' };
+export const ROLES: Record<string, string> = { admin: 'Admin', barbeiro: 'Profissional', recepcao: 'Recepção' };
 
 export const TIMEZONES = ['America/Sao_Paulo', 'America/Bahia', 'America/Fortaleza', 'America/Recife', 'America/Belem', 'America/Manaus',
   'America/Cuiaba', 'America/Campo_Grande', 'America/Porto_Velho', 'America/Boa_Vista', 'America/Rio_Branco', 'America/Noronha'] as const;

@@ -8,6 +8,8 @@
   --display: 'Bricolage Grotesque Variable', system-ui, sans-serif;
   --body: 'Hanken Grotesk Variable', system-ui, sans-serif;
   --r-sm: 6px; --r: 10px; --r-lg: 16px;
+  --stripe: repeating-linear-gradient(135deg, var(--red) 0 7px, var(--pole-white) 7px 14px, var(--blue) 14px 21px, var(--pole-white) 21px 28px);
+  --stripe-lg: repeating-linear-gradient(135deg, var(--red) 0 14px, var(--pole-white) 14px 28px, var(--blue) 28px 42px, var(--pole-white) 42px 56px);
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -37,12 +39,12 @@ a:hover { text-decoration: underline; }
 .nowrap { white-space: nowrap; }
 
 /* poste de barbeiro: o único enfeite do sistema, usado onde há "ocupação" */
-.pole { background: repeating-linear-gradient(135deg, var(--red) 0 7px, var(--pole-white) 7px 14px, var(--blue) 14px 21px, var(--pole-white) 21px 28px); }
+.pole { background: var(--stripe); }
 
 /* ── estrutura ── */
-.shell { display: grid; grid-template-columns: 228px 1fr; min-height: 100dvh; }
+.shell { background: var(--paper); color: var(--ink); display: grid; grid-template-columns: 228px 1fr; min-height: 100dvh; }
 .side { position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column; gap: 4px; padding: 20px 12px 16px 18px; border-right: 1px solid var(--line); background: var(--surface); }
-.side::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 6px; background: repeating-linear-gradient(135deg, var(--red) 0 7px, var(--pole-white) 7px 14px, var(--blue) 14px 21px, var(--pole-white) 21px 28px); }
+.side::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 6px; background: var(--stripe); }
 .brand { font: 700 1.1rem/1.2 var(--display); letter-spacing: -0.02em; padding: 0 8px 14px; }
 .brand small { display: block; font: 400 0.8rem var(--body); color: var(--muted); letter-spacing: 0; margin-top: 2px; }
 .nav { display: grid; gap: 2px; }
@@ -138,8 +140,8 @@ progress::-webkit-progress-value { background: var(--blue); border-radius: 99px;
 progress::-moz-progress-bar { background: var(--blue); border-radius: 99px; }
 progress.brass::-webkit-progress-value { background: var(--brass); } progress.brass::-moz-progress-bar { background: var(--brass); }
 progress.pole-bar { height: 12px; }
-progress.pole-bar::-webkit-progress-value { background: repeating-linear-gradient(135deg, var(--red) 0 7px, var(--pole-white) 7px 14px, var(--blue) 14px 21px, var(--pole-white) 21px 28px); border-radius: 0; }
-progress.pole-bar::-moz-progress-bar { background: repeating-linear-gradient(135deg, var(--red) 0 7px, var(--pole-white) 7px 14px, var(--blue) 14px 21px, var(--pole-white) 21px 28px); }
+progress.pole-bar::-webkit-progress-value { background: var(--stripe); border-radius: 0; }
+progress.pole-bar::-moz-progress-bar { background: var(--stripe); }
 .bars { display: grid; gap: 10px; }
 .bar-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: baseline; }
 .bar-row progress { grid-column: 1 / -1; }
@@ -170,7 +172,7 @@ dialog.modal::backdrop { background: rgb(12 19 34 / 0.55); }
 /* ── entrar / cadastro / convite ── */
 .auth { min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
 .auth-art { background: var(--ink); color: var(--paper); padding: 48px; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; }
-.auth-art::after { content: ''; position: absolute; inset: 0 0 0 auto; width: 28px; background: repeating-linear-gradient(135deg, var(--red) 0 14px, var(--pole-white) 14px 28px, var(--blue) 28px 42px, var(--pole-white) 42px 56px); background-size: 100% 79.2px; animation: pole 3.2s linear infinite; }
+.auth-art::after { content: ''; position: absolute; inset: 0 0 0 auto; width: 28px; background: var(--stripe-lg); background-size: 100% 79.2px; animation: pole 3.2s linear infinite; }
 @keyframes pole { to { background-position: 0 -79.2px; } }
 @media (prefers-reduced-motion: reduce) { .auth-art::after { animation: none; } }
 .auth-art h1 { font-size: clamp(2rem, 3.6vw, 3.1rem); max-width: 13ch; }
@@ -214,3 +216,37 @@ dialog.modal::backdrop { background: rgb(12 19 34 / 0.55); }
 .item.pick { color: var(--ink); border-radius: var(--r-sm); }
 .item.pick:hover { background: var(--sunken); text-decoration: none; }
 .chip.on { background: var(--blue); border-color: var(--blue); border-style: solid; color: var(--on-blue); }
+
+/* ── estúdio de sobrancelhas: beringela, ameixa e o dourado do lápis de mapeamento; títulos em serifa ── */
+[data-kind='sobrancelha'] {
+  --paper: #f5f2f6; --surface: #ffffff; --sunken: #ece6ee;
+  --ink: #2b1a2f; --muted: #6c5d71; --line: #ded5e2;
+  --blue: #7b2d5e; --blue-soft: #f3e2ec; --red: #b4321f; --red-soft: #fae7e3;
+  --brass: #86621f; --brass-soft: #f5ecd9; --green: #1c7551; --green-soft: #e0f2ea;
+  --on-blue: #ffffff;
+  --display: 'Fraunces Variable', Georgia, serif;
+  /* no lugar do poste de barbeiro: o fio, uma linha fina que vai da ameixa ao dourado */
+  --stripe: linear-gradient(180deg, #7b2d5e, #b98a3a);
+  --stripe-lg: linear-gradient(180deg, #7b2d5e, #b98a3a);
+}
+@media (prefers-color-scheme: dark) {
+  [data-kind='sobrancelha'] {
+    --paper: #150e17; --surface: #1f1622; --sunken: #1a121c;
+    --ink: #f0e9f2; --muted: #ab9cb0; --line: #382b3d;
+    --blue: #e59ac4; --blue-soft: #3b2033; --red: #f08a78; --red-soft: #3a1c18;
+    --brass: #dcb76c; --brass-soft: #33291a; --green: #62c79b; --green-soft: #15302a;
+    --on-blue: #150e17;
+    --stripe: linear-gradient(180deg, #e59ac4, #dcb76c); --stripe-lg: linear-gradient(180deg, #e59ac4, #dcb76c);
+  }
+}
+[data-kind='sobrancelha'] .side::before { width: 3px; }
+[data-kind='sobrancelha'] progress.pole-bar::-webkit-progress-value { background: linear-gradient(90deg, var(--blue), var(--brass)); }
+[data-kind='sobrancelha'] progress.pole-bar::-moz-progress-bar { background: linear-gradient(90deg, var(--blue), var(--brass)); }
+[data-kind='sobrancelha'] h1 { font-weight: 560; letter-spacing: -0.01em; }
+[data-kind='sobrancelha'] .stat dd, [data-kind='sobrancelha'] .item .when { font-family: var(--body); font-weight: 650; }
+[data-kind='sobrancelha'].auth .auth-art::after { width: 3px; animation: none; inset: 48px 48px 48px auto; }
+.public-wrap, .auth { background: var(--paper); color: var(--ink); min-height: 100dvh; }
+.pw { display: flex; gap: 6px; } .pw input { flex: 1; min-width: 0; } .pw .btn { min-height: 40px; }
+.msg.code { font: 650 1.15rem var(--body); letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+.stats > :last-child { grid-column-end: -1; }
+[data-kind='sobrancelha'].auth .auth-art::after { background-size: 100% 100%; }

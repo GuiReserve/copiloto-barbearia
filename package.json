@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/hanken-grotesk": "^5.3.0",
     "next": "^16.4.0",
     "pg": "^8.23.1",

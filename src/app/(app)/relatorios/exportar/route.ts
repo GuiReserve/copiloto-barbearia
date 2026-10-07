@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import { withTenant } from '@/lib/db';
 import { audit } from '@/lib/action';
 import { parsePeriod, today } from '@/lib/metrics';
+import { terms } from '@/lib/terms';
 
 // Células que começam com = + - @ viram fórmula no Excel: neutraliza (injeção de CSV).
 const cell = (v: unknown) => {
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
          where a.starts_at >= $1::date and a.starts_at < ($2::date + 1) order by a.starts_at`, [p.from, p.to]),
     };
   });
-  const head = ['Dia', 'Hora', 'Cliente', 'Barbeiro', 'Serviço', 'Origem', 'Situação', 'Valor'];
+  const head = ['Dia', 'Hora', 'Cliente', terms(s.kind).Pro, 'Serviço', 'Origem', 'Situação', 'Valor'];
   const csv = '﻿' + [head, ...rows.map((r) => [r.dia, r.hora, r.cliente, r.barbeiro, r.servico, r.origem, r.status, r.valor])].map((l) => l.map(cell).join(';')).join('\r\n');
   return new Response(csv, { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="atendimentos-${p.from}-a-${p.to}.csv"`, 'Cache-Control': 'no-store' } });
 }

@@ -6,13 +6,15 @@ import type { Tx } from '@/lib/db';
 import { freeByBarber } from '@/lib/slots';
 import { hm, toMin } from '@/lib/format';
 import { candidates, sendOffers, slotFromAppointment } from '@/lib/waitlist';
+import { terms, type Kind } from '@/lib/terms';
 
 /** Confere se o serviço cabe em uma janela livre do barbeiro. O banco ainda barra sobreposição por conta própria. */
-async function assertFits(tx: Tx, barberId: string, serviceId: string, date: string, time: string, force: boolean, ignoreId?: string) {
+async function assertFits(tx: Tx, kind: Kind, barberId: string, serviceId: string, date: string, time: string, force: boolean, ignoreId?: string) {
+  const tm = terms(kind);
   const sv = await tx.one(`select s.duration_min, s.price::float8 price, exists (select from barber_services where barber_id = $2 and service_id = s.id) faz
                            from services s where s.id = $1 and s.active`, [serviceId, barberId]);
   if (!sv) throw new AppError('Serviço não encontrado.');
-  if (!sv.faz) throw new AppError('Este barbeiro não faz este serviço. Ajuste em Serviços ou escolha outro barbeiro.');
+  if (!sv.faz) throw new AppError(`${tm.estePro[0].toUpperCase()}${tm.estePro.slice(1)} não faz este serviço. Ajuste em Serviços ou escolha ${tm.outroPro}.`);
   if (!force) {
     let { free } = await freeByBarber(tx, date, barberId);
     let list = free.get(barberId) ?? [];
@@ -27,7 +29,7 @@ async function assertFits(tx: Tx, barberId: string, serviceId: string, date: str
       const options = list.filter(([a, b]) => b - a >= sv.duration_min).map(([a, b]) => `${hm(a)} a ${hm(b - sv.duration_min)}`);
       throw new AppError(options.length
         ? `Às ${time} não cabe (${sv.duration_min} min). Inícios livres neste dia: ${options.join(', ')}. Para forçar, marque "Encaixe".`
-        : 'Sem horário livre para este barbeiro neste dia. Coloque o cliente na fila de espera ou marque "Encaixe" para forçar.');
+        : `Sem horário livre para ${tm.estePro} neste dia. Coloque o cliente na fila de espera ou marque "Encaixe" para forçar.`);
     }
   }
   return sv as { duration_min: number; price: number };
@@ -40,7 +42,7 @@ const createSchema = z.object({
 
 export async function createAppointment(_: State, fd: FormData) {
   return run(STAFF, createSchema, fd, async (d, tx, s) => {
-    const sv = await assertFits(tx, d.barber_id, d.service_id, d.date, d.time, !!d.force);
+    const sv = await assertFits(tx, s.kind, d.barber_id, d.service_id, d.date, d.time, !!d.force);
     let clientId = d.client_id, sourceId = d.source_id ?? null;
     if (!clientId) {
       if (!d.new_name) throw new AppError('Escolha um cliente ou informe o nome do novo cliente.');
@@ -63,7 +65,7 @@ const updateSchema = z.object({ id: v.id, service_id: v.id, barber_id: v.id, dat
 /** Editar e reagendar. */
 export async function updateAppointment(_: State, fd: FormData) {
   return run(STAFF, updateSchema, fd, async (d, tx, s) => {
-    const sv = await assertFits(tx, d.barber_id, d.service_id, d.date, d.time, !!d.force, d.id);
+    const sv = await assertFits(tx, s.kind, d.barber_id, d.service_id, d.date, d.time, !!d.force, d.id);
     const r = await tx.one(
       `update appointments set service_id=$2, barber_id=$3, starts_at=($4::date + $5::time)::timestamptz,
               ends_at=($4::date + $5::time)::timestamptz + make_interval(mins => $6), price=$7, notes=$8

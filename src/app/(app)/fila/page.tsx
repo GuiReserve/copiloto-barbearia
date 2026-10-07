@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { requireSession, STAFF } from '@/lib/auth';
+import { terms } from '@/lib/terms';
 import { withTenant } from '@/lib/db';
 import { dmy, isUuid } from '@/lib/format';
 import { today } from '@/lib/metrics';
@@ -11,6 +12,7 @@ import { addWaiting, removeWaiting } from './actions';
 
 export default async function QueuePage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const s = await requireSession(STAFF);
+  const t = terms(s.kind);
   const sp = await searchParams;
   const d = await withTenant(s, async (tx) => {
     await expireOffers(tx);
@@ -47,7 +49,7 @@ export default async function QueuePage({ searchParams }: { searchParams: Promis
                 <label className="field"><span>Nome do novo cliente</span><input name="new_name" maxLength={80} /></label>
                 <label className="field"><span>Telefone</span><input name="new_phone" inputMode="tel" /></label>
                 <label className="field"><span>Serviço desejado</span><select name="service_id" required>{d.lk.services.map((x) => <option key={x.id} value={x.id}>{x.name}, {x.duration_min} min</option>)}</select></label>
-                <label className="field"><span>Barbeiro preferido</span><select name="barber_id"><option value="">Qualquer um</option>{d.lk.barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+                <label className="field"><span>{t.proPreferido}</span><select name="barber_id"><option value="">Qualquer um</option>{d.lk.barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
               </div>
               <label className="field"><span>Dia desejado</span><input type="date" name="date" defaultValue={d.t} min={d.t} required /></label>
               <div className="form-2">
@@ -78,7 +80,7 @@ export default async function QueuePage({ searchParams }: { searchParams: Promis
               <div className="item" key={w.id}>
                 <span className="when">{w.date === d.t ? 'Hoje' : dmy(w.date)}</span>
                 <span className="grow"><Link href={`/clientes/${w.client_id}`}><strong>{w.client}</strong></Link>{w.priority > 0 && <span className="badge b-vip"> prioridade</span>}<br />
-                  <span className="muted small">{w.service} · {w.de.slice(0, 5)} às {w.ate.slice(0, 5)}{w.flex_minutes > 0 && ` (±${w.flex_minutes} min)`} · {w.barber ?? 'qualquer barbeiro'}{w.notes && ` · ${w.notes}`}</span></span>
+                  <span className="muted small">{w.service} · {w.de.slice(0, 5)} às {w.ate.slice(0, 5)}{w.flex_minutes > 0 && ` (±${w.flex_minutes} min)`} · {w.barber ?? t.qualquerPro}{w.notes && ` · ${w.notes}`}</span></span>
                 <ActionForm action={removeWaiting} className=""><input type="hidden" name="id" value={w.id} /><Submit className="btn btn-sm">Tirar da fila</Submit></ActionForm>
               </div>
             ))}

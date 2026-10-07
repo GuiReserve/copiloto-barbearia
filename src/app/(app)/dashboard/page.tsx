@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { requireSession } from '@/lib/auth';
+import { terms } from '@/lib/terms';
 import { withTenant, type Tx } from '@/lib/db';
 import { brl, dmy, hm, hours, num, pct, ratio, STATUS } from '@/lib/format';
 import { agendaStats, barberStats, insights, parsePeriod, revenueByBarber, revenueByDay, revenueByService, snapshot, today } from '@/lib/metrics';
@@ -30,6 +31,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const s = await requireSession();
   const sp = await searchParams;
   const admin = s.role === 'admin', staff = s.role !== 'barbeiro';
+  const t = terms(s.kind);
   const d = await withTenant(s, async (tx) => {
     const t = await today(tx), p = parsePeriod(sp, t);
     const base = { t, p, now: await todayData(tx, t, staff ? null : s.barberId, staff), todayStats: await agendaStats(tx, t, t) };
@@ -50,7 +52,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="stack">
-      <div className="page-head"><div><h1>{admin ? 'Como está a barbearia' : `Olá, ${s.name.split(' ')[0]}`}</h1><p>{s.shopName}</p></div>
+      <div className="page-head"><div><h1>{admin ? t.como : `Olá, ${s.name.split(' ')[0]}`}</h1><p>{s.shopName}</p></div>
         {staff && <Link className="btn btn-primary" href="/agenda?novo=1">Novo agendamento</Link>}</div>
 
       {now.notes.length > 0 && (
@@ -161,7 +163,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </section>
 
           <div className="grid cols-2">
-            <section className="card"><h2>Faturamento por barbeiro</h2><Bars brass format={brl} rows={d.byBarber.map((b) => ({ label: b.name, value: b.total, hint: `${b.atendimentos} atend.` }))} /></section>
+            <section className="card"><h2>Faturamento por {t.pro}</h2><Bars brass format={brl} rows={d.byBarber.map((b) => ({ label: b.name, value: b.total, hint: `${b.atendimentos} atend.` }))} /></section>
             <section className="card"><h2>Faturamento por serviço</h2><Bars brass format={brl} rows={d.byService.map((x) => ({ label: x.name, value: x.total, hint: `${x.atendimentos} atend.` }))} /></section>
             <section className="card stack-sm"><div className="row between"><h2>De onde vêm os clientes</h2><Link href="/marketing">Marketing</Link></div>
               <Bars format={(n) => `${num(n)} (${pct(ratio(n, snap.sources.reduce((a, x) => a + x.novos, 0)))})`} rows={snap.sources.filter((x) => x.novos > 0).map((x) => ({ label: x.name, value: x.novos, hint: brl(x.receita) }))} />

@@ -2,7 +2,7 @@ import 'server-only';
 import { sys } from './db';
 import type { Session } from './auth';
 
-export type PublicShop = { id: string; name: string; phone: string | null; timezone: string; public_booking: boolean; booking_days: number; slot_minutes: number };
+export type PublicShop = { id: string; name: string; phone: string | null; timezone: string; public_booking: boolean; booking_days: number; slot_minutes: number; kind: string };
 
 export async function publicShop(slug: string): Promise<PublicShop | null> {
   if (!/^[a-z0-9-]{3,40}$/.test(slug)) return null;
@@ -17,5 +17,5 @@ export async function publicShop(slug: string): Promise<PublicShop | null> {
  */
 export const publicSession = (shop: PublicShop): Session => ({
   userId: '', shopId: shop.id, role: 'publico' as Session['role'], barberId: null,
-  name: 'Visitante', shopName: shop.name, tz: shop.timezone, tokenHash: Buffer.alloc(0),
+  name: 'Visitante', shopName: shop.name, tz: shop.timezone, tokenHash: Buffer.alloc(0), kind: shop.kind === 'sobrancelha' ? 'sobrancelha' : 'barbearia',
 });

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireSession } from '@/lib/auth';
+import { terms } from '@/lib/terms';
 import { withTenant } from '@/lib/db';
 import { brl, dmyFull, isUuid, STATUS } from '@/lib/format';
 import { CLASSES, CLIENT_STATS } from '@/lib/metrics';
@@ -34,7 +35,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         <div><p className="small"><Link href="/clientes">Clientes</Link></p><h1>{c.name} <span className={`badge b-${c.classe}`}>{CLASSES[c.classe]}</span></h1><p>{c.phone ?? 'Sem telefone'}{c.instagram && ` · @${c.instagram}`}{c.email && ` · ${c.email}`}</p></div>
         {staff && <div className="row">
           <Link className="btn btn-primary" href={`/agenda?novo=1&c=${c.id}`}>Agendar</Link>
-          <Modal label="Editar" title="Editar cliente"><ClientForm c={c} lk={d.lk} /></Modal>
+          <Modal label="Editar" title="Editar cliente"><ClientForm c={c} lk={d.lk} t={terms(s.kind)} /></Modal>
         </div>}
       </div>
       <dl className="stats">
@@ -61,7 +62,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         </section>
         <div className="stack">
           <section className="card stack-sm"><h2>Preferências</h2>
-            <p>Barbeiro: {c.barber ?? 'tanto faz'}</p><p>Serviço: {c.service ?? 'nenhum'}</p>
+            <p>{terms(s.kind).Pro}: {c.barber ?? 'tanto faz'}</p><p>Serviço: {c.service ?? 'nenhum'}</p>
             {c.birth_date && <p>Nascimento: {dmyFull(c.birth_date)}</p>}
             {c.notes && <p className="msg">{c.notes}</p>}
           </section>

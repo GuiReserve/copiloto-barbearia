@@ -39,7 +39,7 @@ export async function createMessage(tx: Tx, s: Session, m: {
   const c = await tx.one(`select name, phone from clients where id = $1`, [m.clientId]);
   const t = await tx.one(`select body from message_templates where kind = $1`, [m.kind]);
   if (!c || !t) return null;
-  const body = render(t.body, { cliente: c.name.split(' ')[0], barbearia: s.shopName, ...m.vars });
+  const body = render(t.body, { cliente: c.name.split(' ')[0], barbearia: s.shopName, estudio: s.shopName, profissional: m.vars.barbeiro, ...m.vars });
   const p = provider();
   const { status } = await p.send({ to: c.phone, body });
   await tx.q(

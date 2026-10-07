@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { clientIp, getSession, type Role, type Session } from './auth';
 import { withTenant, type Tx } from './db';
 
-export type State = { ok?: boolean; error?: string; at?: number } | null;
+export type State = { ok?: boolean; error?: string; at?: number; info?: string } | null;
 export class AppError extends Error {}
 
 function formToObject(fd: FormData) {
@@ -21,7 +21,7 @@ function formToObject(fd: FormData) {
 function friendly(e: any): string {
   if (e instanceof AppError) return e.message;
   switch (e?.code) {
-    case '23P01': return 'Esse horário já está ocupado para este barbeiro.';
+    case '23P01': return 'Esse horário já está ocupado na agenda.';
     case '23505': return 'Já existe um registro com esses dados.';
     case '23503': return 'Não dá para excluir: existem registros ligados a este item.';
     case '23514': return 'Algum valor está fora do permitido. Revise os campos.';
@@ -45,14 +45,14 @@ export async function audit(tx: Tx, s: Session, action: string, entity?: string,
  */
 export async function run<S extends z.ZodType>(
   roles: Role[], schema: S, fd: FormData,
-  fn: (data: z.infer<S>, tx: Tx, s: Session) => Promise<{ redirect?: string } | void>,
+  fn: (data: z.infer<S>, tx: Tx, s: Session) => Promise<{ redirect?: string; info?: string } | void>,
 ): Promise<State> {
   const s = await getSession();
   if (!s) redirect('/login');
   if (!roles.includes(s.role)) return { error: 'Sem permissão para esta ação.' };
   const parsed = schema.safeParse(formToObject(fd));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Dados inválidos.' };
-  let out: { redirect?: string } | void;
+  let out: { redirect?: string; info?: string } | void;
   try {
     out = await withTenant(s, (tx) => fn(parsed.data, tx, s));
   } catch (e) {
@@ -60,7 +60,7 @@ export async function run<S extends z.ZodType>(
   }
   revalidatePath('/', 'layout');
   if (out?.redirect) redirect(out.redirect);
-  return { ok: true, at: Date.now() };
+  return { ok: true, at: Date.now(), info: out?.info };
 }
 
 // ── validadores reutilizados ──
@@ -77,5 +77,5 @@ export const v = {
   pct: z.preprocess((x) => (typeof x === 'string' ? x.replace(',', '.') : x), z.coerce.number().min(0, 'Percentual inválido.').max(100, 'Percentual inválido.')),
   phone: z.string().trim().regex(/^[\d\s()+-]{8,20}$/, 'Telefone inválido.').optional(),
   email: z.email('E-mail inválido.').max(200).transform((e) => e.toLowerCase()),
-  password: z.string('Informe a senha.').min(10, 'A senha precisa de pelo menos 10 caracteres.').max(200),
+  password: z.string('Informe a senha.').min(8, 'A senha precisa de pelo menos 8 caracteres.').max(200),
 };

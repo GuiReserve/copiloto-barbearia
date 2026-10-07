@@ -1,4 +1,5 @@
 import { requireSession } from '@/lib/auth';
+import { terms } from '@/lib/terms';
 import { withTenant } from '@/lib/db';
 import { ROLES, TIMEZONES } from '@/lib/format';
 import { TEMPLATE_KINDS, TEMPLATE_VARS } from '@/integrations/messaging';
@@ -6,7 +7,7 @@ import { ActionForm, CopyButton, Modal, Submit } from '@/components/ui';
 import { appUrl } from '@/lib/waitlist';
 import { HoursForm } from '@/components/hours';
 import { saveHours } from '../barbeiros/actions';
-import { addBlock, addSource, addUser, changeOwnPassword, removeBlock, resetUserPassword, saveShop, saveTemplate, toggleSource, toggleUser } from './actions';
+import { addBlock, addSource, addUser, changeOwnPassword, newRecoveryCode, removeBlock, resetUserPassword, saveShop, saveTemplate, toggleSource, toggleUser } from './actions';
 
 const KIND: Record<string, string> = { bloqueio: 'Bloqueio', folga: 'Folga', feriado: 'Feriado' };
 
@@ -14,7 +15,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const s = await requireSession();
   const first = (await searchParams).inicio === '1';
   const admin = s.role === 'admin', staff = admin || s.role === 'recepcao';
+  const t = terms(s.kind);
   const d = await withTenant(s, async (tx) => ({
+    hasRecovery: (await tx.one(`select auth_has_recovery() r`))!.r as boolean,
     st: (await tx.one(`select s.*, b.slug from settings s join barbershops b on b.id = s.barbershop_id`))!,
     hours: await tx.q(`select weekday, opens::text, closes::text, break_start::text, break_end::text from work_hours where barber_id is null`),
     barbers: await tx.q(`select id, name from barbers where active order by name`),
@@ -28,11 +31,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const bookingUrl = `${appUrl()}/b/${d.st.slug}`;
   return (
     <div className="stack">
-      <div className="page-head"><div><h1>Configurações</h1><p>{admin ? 'Dados da barbearia, horários, equipe e mensagens.' : 'Sua senha e os bloqueios de horário.'}</p></div></div>
-      {first && <p className="notice ok">Conta criada. Para a agenda funcionar, confira o horário de funcionamento abaixo e depois cadastre <a href="/barbeiros">barbeiros</a> e <a href="/servicos">serviços</a>.</p>}
+      <div className="page-head"><div><h1>Configurações</h1><p>{admin ? `Dados ${t.doNegocio}, horários, equipe e mensagens.` : 'Sua senha e os bloqueios de horário.'}</p></div></div>
+      {first && <p className="notice ok">Conta criada. Para a agenda funcionar, confira o horário de funcionamento abaixo e depois cadastre <a href={t.proPath}>{t.pros}</a> e <a href="/servicos">serviços</a>. Gere também o código de recuperação de senha no fim desta página.</p>}
 
       {admin && (
-        <section className="card"><h2>Barbearia</h2>
+        <section className="card"><h2>{t.Negocio}</h2>
           <ActionForm action={saveShop} done="Configurações salvas.">
             <div className="form-2">
               <label className="field"><span>Nome</span><input name="name" defaultValue={s.shopName} required maxLength={80} /></label>
@@ -64,7 +67,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <p>Mande este link para os clientes ou coloque na bio do Instagram e no perfil do Google:</p>
             <p className="msg">{bookingUrl}</p>
             <div className="row"><CopyButton text={bookingUrl} label="Copiar link" /><a className="btn btn-sm" href={bookingUrl} target="_blank" rel="noopener noreferrer">Abrir página</a></div>
-          </> : <p className="muted">O agendamento online está desligado. {admin ? 'Ligue no quadro "Barbearia" acima.' : 'Peça ao admin para ligar.'}</p>}
+          </> : <p className="muted">O agendamento online está desligado. {admin ? `Ligue no quadro "${t.Negocio}" acima.` : 'Peça ao admin para ligar.'}</p>}
         </section>
       )}
 
@@ -76,7 +79,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <ActionForm action={addBlock}>
               <div className="form-2">
                 <label className="field"><span>Tipo</span><select name="kind">{Object.entries(KIND).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
-                <label className="field"><span>Quem</span><select name="barber_id"><option value="">Barbearia inteira</option>{d.barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+                <label className="field"><span>Quem</span><select name="barber_id"><option value="">{t.inteiro}</option>{d.barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
                 <label className="field"><span>Dia</span><input type="date" name="date" required /></label>
                 <label className="field"><span>Até o dia</span><input type="date" name="date_end" /></label>
                 <label className="field"><span>Das</span><input type="time" name="from" /></label>
@@ -91,7 +94,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             {d.blocks.map((b) => (
               <div className="item" key={b.id}>
                 <span className="badge">{KIND[b.kind]}</span>
-                <span className="grow">{b.de} até {b.ate} · {b.barber ?? 'Barbearia inteira'}{b.reason && <span className="muted"> · {b.reason}</span>}</span>
+                <span className="grow">{b.de} até {b.ate} · {b.barber ?? t.inteiro}{b.reason && <span className="muted"> · {b.reason}</span>}</span>
                 <ActionForm action={removeBlock} className=""><input type="hidden" name="id" value={b.id} /><Submit className="btn btn-sm btn-danger">Remover</Submit></ActionForm>
               </div>
             ))}
@@ -107,10 +110,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               <label className="field"><span>Nome</span><input name="name" required maxLength={80} /></label>
               <label className="field"><span>E-mail</span><input name="email" type="email" required autoComplete="off" /></label>
               <div className="form-2">
-                <label className="field"><span>Perfil</span><select name="role"><option value="recepcao">Recepção: agenda, clientes e fila</option><option value="barbeiro">Barbeiro: só a própria agenda</option><option value="admin">Admin: acesso a tudo</option></select></label>
-                <label className="field"><span>Se for barbeiro, qual?</span><select name="barber_id"><option value="">Selecione</option>{d.barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+                <label className="field"><span>Perfil</span><select name="role"><option value="recepcao">Recepção: agenda, clientes e fila</option><option value="barbeiro">{t.Pro}: só a própria agenda</option><option value="admin">Admin: acesso a tudo</option></select></label>
+                <label className="field"><span>Se for {t.pro}, qual?</span><select name="barber_id"><option value="">Selecione</option>{d.barbers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
               </div>
-              <label className="field"><span>Senha provisória</span><input name="password" type="password" minLength={10} required autoComplete="new-password" /><small>Pelo menos 10 caracteres. Peça para a pessoa trocar no primeiro acesso.</small></label>
+              <label className="field"><span>Senha provisória</span><input name="password" type="password" minLength={8} required autoComplete="new-password" /><small>Pelo menos 8 caracteres. Peça para a pessoa trocar no primeiro acesso.</small></label>
               <Submit>Criar usuário</Submit>
             </ActionForm>
           </Modal></div>
@@ -120,7 +123,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 <span className="grow"><strong>{u.name}</strong> <span className="badge">{ROLES[u.role]}{u.barber ? `: ${u.barber}` : ''}</span>{!u.active && <span className="badge b-cancelado">Desativado</span>}<br /><span className="muted small">{u.email}</span></span>
                 <Modal label="Nova senha" title={`Nova senha para ${u.name}`} className="btn btn-sm">
                   <ActionForm action={resetUserPassword}><input type="hidden" name="id" value={u.id} />
-                    <label className="field"><span>Nova senha</span><input name="password" type="password" minLength={10} required autoComplete="new-password" /><small>Todos os acessos abertos dessa pessoa são encerrados.</small></label>
+                    <label className="field"><span>Nova senha</span><input name="password" type="password" minLength={8} required autoComplete="new-password" /><small>Todos os acessos abertos dessa pessoa são encerrados.</small></label>
                     <Submit>Redefinir senha</Submit>
                   </ActionForm>
                 </Modal>
@@ -133,7 +136,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       {admin && (
         <section className="card"><h2>Mensagens</h2>
-          <p className="muted small">Campos que o sistema preenche: {TEMPLATE_VARS.map((x) => `{{${x}}}`).join(' ')}</p>
+          <p className="muted small">Campos que o sistema preenche: {TEMPLATE_VARS.map((x) => `{{${x === 'barbeiro' ? t.varPro : x === 'barbearia' ? t.varNegocio : x}}}`).join(' ')}</p>
           <div className="list">
             {d.templates.map((t) => (
               <ActionForm action={saveTemplate} key={t.kind} done="Mensagem salva.">
@@ -167,10 +170,16 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <ActionForm action={changeOwnPassword} done="Senha alterada. Os outros aparelhos foram desconectados.">
           <div className="form-2">
             <label className="field"><span>Senha atual</span><input name="current" type="password" required autoComplete="current-password" /></label>
-            <label className="field"><span>Nova senha</span><input name="password" type="password" minLength={10} required autoComplete="new-password" /></label>
+            <label className="field"><span>Nova senha</span><input name="password" type="password" minLength={8} required autoComplete="new-password" /></label>
           </div>
           <div><Submit>Trocar senha</Submit></div>
         </ActionForm>
+      </section>
+
+      <section className="card stack-sm"><h2>Código de recuperação de senha</h2>
+        <p>{d.hasRecovery ? 'Você já tem um código ativo. Gerar outro cancela o anterior.' : 'Você ainda não tem código. Sem ele, se esquecer a senha, só outro admin consegue redefinir.'}</p>
+        <ActionForm action={newRecoveryCode}><div><Submit className="btn">{d.hasRecovery ? 'Gerar novo código' : 'Gerar código de recuperação'}</Submit></div></ActionForm>
+        <p className="small muted">O código aparece uma única vez. Anote em papel ou guarde no gerenciador de senhas. Com ele e o seu e-mail você cria uma senha nova em "Esqueci a senha".</p>
       </section>
 
       {admin && (

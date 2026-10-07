@@ -32,7 +32,7 @@ export default async function OfferPage({ params }: { params: Promise<{ token: s
         </>}
         {o.status === 'aceitou' && <><h1>Horário confirmado</h1><p>Esperamos você dia {o.day} às {o.hour}, com {o.barber_name}.</p></>}
         {o.status === 'recusou' && <><h1>Tudo bem</h1><p>Você continua podendo marcar outro horário com a gente.</p></>}
-        {(o.status === 'expirou' || (o.status === 'enviado' && o.expired)) && <><h1>Este horário já foi preenchido</h1><p>O convite não está mais disponível. Fale com a barbearia para marcar outro horário.</p></>}
+        {(o.status === 'expirou' || (o.status === 'enviado' && o.expired)) && <><h1>Este horário já foi preenchido</h1><p>O convite não está mais disponível. Entre em contato para marcar outro horário.</p></>}
       </div>
     </main>
   );
