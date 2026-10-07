@@ -2,7 +2,8 @@ import { requireSession } from '@/lib/auth';
 import { withTenant } from '@/lib/db';
 import { ROLES, TIMEZONES } from '@/lib/format';
 import { TEMPLATE_KINDS, TEMPLATE_VARS } from '@/integrations/messaging';
-import { ActionForm, Modal, Submit } from '@/components/ui';
+import { ActionForm, CopyButton, Modal, Submit } from '@/components/ui';
+import { appUrl } from '@/lib/waitlist';
 import { HoursForm } from '@/components/hours';
 import { saveHours } from '../barbeiros/actions';
 import { addBlock, addSource, addUser, changeOwnPassword, removeBlock, resetUserPassword, saveShop, saveTemplate, toggleSource, toggleUser } from './actions';
@@ -14,7 +15,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const first = (await searchParams).inicio === '1';
   const admin = s.role === 'admin', staff = admin || s.role === 'recepcao';
   const d = await withTenant(s, async (tx) => ({
-    st: (await tx.one(`select * from settings`))!,
+    st: (await tx.one(`select s.*, b.slug from settings s join barbershops b on b.id = s.barbershop_id`))!,
     hours: await tx.q(`select weekday, opens::text, closes::text, break_start::text, break_end::text from work_hours where barber_id is null`),
     barbers: await tx.q(`select id, name from barbers where active order by name`),
     blocks: await tx.q(`select t.id, t.kind, t.reason, b.name barber, to_char(t.starts_at, 'DD/MM HH24:MI') de, to_char(t.ends_at, 'DD/MM HH24:MI') ate
@@ -24,6 +25,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     sources: admin ? await tx.q(`select id, name, kind, active from marketing_sources order by active desc, name`) : [],
     log: admin ? await tx.q(`select a.action, a.ip, to_char(a.created_at, 'DD/MM HH24:MI') quando, u.name from audit_log a left join users u on u.id = a.user_id order by a.id desc limit 40`) : [],
   }));
+  const bookingUrl = `${appUrl()}/b/${d.st.slug}`;
   return (
     <div className="stack">
       <div className="page-head"><div><h1>Configurações</h1><p>{admin ? 'Dados da barbearia, horários, equipe e mensagens.' : 'Sua senha e os bloqueios de horário.'}</p></div></div>
@@ -44,12 +46,25 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                   <option value="todos">Convidar automaticamente todos os compatíveis</option>
                 </select></label>
               <label className="field"><span>Validade do convite de encaixe (minutos)</span><input name="offer_expiry_minutes" type="number" min={5} max={1440} defaultValue={d.st.offer_expiry_minutes} /></label>
+              <label className="field"><span>Endereço da página de agendamento</span><input name="slug" defaultValue={d.st.slug} required minLength={3} maxLength={40} /><small>Só letras minúsculas, números e hífen.</small></label>
+              <label className="field"><span>Cliente pode marcar com até (dias de antecedência)</span><input name="booking_days" type="number" min={1} max={60} defaultValue={d.st.booking_days} /></label>
               <label className="field"><span>Cliente inativo após (dias sem vir)</span><input name="inactive_days" type="number" min={7} max={365} defaultValue={d.st.inactive_days} /></label>
               <label className="field"><span>Cliente perdido após (dias sem vir)</span><input name="lost_days" type="number" min={14} max={730} defaultValue={d.st.lost_days} /></label>
               <label className="field"><span>Cliente VIP a partir de (atendimentos)</span><input name="vip_visits" type="number" min={2} max={500} defaultValue={d.st.vip_visits} /></label>
             </div>
+            <label className="check"><input type="checkbox" name="public_booking" value="1" defaultChecked={d.st.public_booking} />Agendamento online ligado: clientes marcam sozinhos pela página pública</label>
             <div><Submit>Salvar configurações</Submit></div>
           </ActionForm>
+        </section>
+      )}
+
+      {staff && (
+        <section className="card stack-sm"><h2>Página de agendamento dos clientes</h2>
+          {d.st.public_booking ? <>
+            <p>Mande este link para os clientes ou coloque na bio do Instagram e no perfil do Google:</p>
+            <p className="msg">{bookingUrl}</p>
+            <div className="row"><CopyButton text={bookingUrl} label="Copiar link" /><a className="btn btn-sm" href={bookingUrl} target="_blank" rel="noopener noreferrer">Abrir página</a></div>
+          </> : <p className="muted">O agendamento online está desligado. {admin ? 'Ligue no quadro "Barbearia" acima.' : 'Peça ao admin para ligar.'}</p>}
         </section>
       )}
 

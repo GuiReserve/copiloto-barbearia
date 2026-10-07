@@ -70,6 +70,15 @@ try {
     check('barbeiro não cria agendamento', await denied(`insert into appointments (barbershop_id,client_id,barber_id,service_id,starts_at,ends_at,price) values ($1,$2,$3,$4,now()+interval '9 day',now()+interval '9 day 30 min',1)`, [A.shop, A.client, A.barber, A.service]));
     check('barbeiro não vê fila nem mensagens', (await rows(`select count(*)::int n from waiting_list`))[0].n === 0 && (await rows(`select count(*)::int n from messages`))[0].n === 0);
   });
+  // 3b. visitante da página pública de agendamento
+  await as({ shop: A.shop, role: 'publico' }, async () => {
+    check('visitante vê o catálogo de serviços', (await rows(`select count(*)::int n from services`))[0].n === 1);
+    for (const t of ['clients', 'appointments', 'revenues', 'expenses', 'waiting_list', 'messages', 'notifications', 'audit_log', 'users'])
+      check(`visitante não vê ${t}`, (await rows(`select count(*)::int n from ${t}`).catch(() => [{ n: 0 }]))[0].n === 0);
+    check('visitante não altera serviços', await denied(`update services set price=1`));
+    check('visitante não cria agendamento direto na tabela', await denied(`insert into appointments (barbershop_id,client_id,barber_id,service_id,starts_at,ends_at,price) values ($1,$2,$3,$4,now()+interval '9 day',now()+interval '9 day 30 min',1)`, [A.shop, A.client, A.barber, A.service]));
+    check('horários ocupados não trazem dados de cliente', Object.keys((await rows(`select * from day_busy((now() + interval '1 day')::date)`))[0] ?? { barber_id: 1, a: 1, len: 1 }).join() === 'barber_id,a,len');
+  });
   // 4. o papel do app não tem poderes de dono
   await as(adminA, async () => {
     check('app não desliga o RLS', await denied(`alter table clients disable row level security`));

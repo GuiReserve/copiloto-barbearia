@@ -67,10 +67,8 @@ export async function occupancy(tx: Tx, from: string, to: string, barberId?: str
 /** Janelas livres de um dia por barbeiro (expediente menos atendimentos ativos). */
 export async function freeByBarber(tx: Tx, date: string, barberId?: string | null) {
   const work = (await availability(tx, date, date, barberId)).get(date)!;
-  const appts = await tx.q(
-    `select barber_id, (extract(hour from starts_at) * 60 + extract(minute from starts_at))::int a,
-            (extract(epoch from ends_at - starts_at) / 60)::int len
-     from appointments where status not in ('cancelado', 'faltou') and starts_at >= $1::date and starts_at < ($1::date + 1)`, [date]);
+  // via função: só horário e barbeiro, sem dados de cliente (vale também para a página pública)
+  const appts = await tx.q(`select barber_id, a, len from day_busy($1::date)`, [date]);
   const now = await tx.one<{ today: string; m: number }>(
     `select current_date::text today, (extract(hour from now()) * 60 + extract(minute from now()))::int m`);
   const free = new Map<string, Interval[]>();

@@ -49,6 +49,9 @@ Verifique você mesmo, em um banco de teste: `npm run test:security` (39 verific
 - LGPD: o sistema guarda nome, telefone e nascimento de clientes. Tenha política de privacidade; o admin pode excluir clientes sem histórico.
 - Antes de vender para terceiros, contrate um pentest independente. Nenhum sistema é "à prova de invasão".
 
+## Agendamento online
+Cada barbearia tem uma página pública (`/b/endereco-da-barbearia`, link em Configurações). O cliente escolhe serviço, barbeiro, dia e horário livre e informa nome e WhatsApp; sem vaga, entra na fila de espera. Proteções: 6 pedidos por hora por conexão, no máximo 2 horários futuros por telefone, janela de antecedência configurável, e pode ser desligado em Configurações. Não há confirmação por SMS: alguém mal-intencionado ainda pode marcar horários falsos dentro desses limites.
+
 ## Como funciona o encaixe
 Cancelou um horário → o sistema procura na fila quem quer aquele dia, cabe na janela (com a tolerância), tem serviço que cabe no tempo livre e que o barbeiro faz. Ordem: prioridade → pediu o barbeiro → chegou primeiro. O convite gera a mensagem com um link; o cliente toca em "Quero este horário" e o agendamento é criado sozinho (ou o atendente confirma). Em Configurações dá para enviar automaticamente ao primeiro ou a todos.
 

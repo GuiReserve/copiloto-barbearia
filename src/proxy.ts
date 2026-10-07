@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const PUBLIC = [/^\/login$/, /^\/cadastro$/, /^\/o\/[\w-]+$/];
+const PUBLIC = [/^\/login$/, /^\/cadastro$/, /^\/o\/[\w-]+$/, /^\/b\/[a-z0-9-]+$/];
 
 export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');

@@ -8,16 +8,18 @@ import { TIMEZONES } from '@/lib/format';
 
 export async function saveShop(_: State, fd: FormData) {
   const schema = z.object({
-    name: v.text('o nome da barbearia'), phone: v.phone, timezone: z.enum(TIMEZONES, 'Fuso inválido.'),
+    name: v.text('o nome da barbearia'), phone: v.phone,
+    slug: z.string('Informe o endereço público.').trim().toLowerCase().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Endereço público: use só letras minúsculas, números e hífen.').min(3, 'Endereço público: mínimo 3 caracteres.').max(40),
+    public_booking: z.string().optional(), booking_days: v.int('os dias de antecedência', 1, 60), timezone: z.enum(TIMEZONES, 'Fuso inválido.'),
     slot_minutes: v.int('o intervalo da agenda', 5, 120), offer_expiry_minutes: v.int('a validade do convite', 5, 1440),
     auto_offer: z.enum(['manual', 'primeiro', 'todos']),
     inactive_days: v.int('os dias para inativo', 7, 365), lost_days: v.int('os dias para perdido', 14, 730), vip_visits: v.int('as visitas para VIP', 2, 500),
   });
   return run(ADMIN, schema, fd, async (d, tx, s) => {
     if (d.lost_days <= d.inactive_days) throw new AppError('"Perdido" precisa ter mais dias que "inativo".');
-    await tx.q(`update barbershops set name = $1 where id = app_shop()`, [d.name]);
-    await tx.q(`update settings set phone=$1, timezone=$2, slot_minutes=$3, offer_expiry_minutes=$4, auto_offer=$5, inactive_days=$6, lost_days=$7, vip_visits=$8`,
-      [d.phone ?? null, d.timezone, d.slot_minutes, d.offer_expiry_minutes, d.auto_offer, d.inactive_days, d.lost_days, d.vip_visits]);
+    await tx.q(`update barbershops set name = $1, slug = $2 where id = app_shop()`, [d.name, d.slug]);
+    await tx.q(`update settings set phone=$1, timezone=$2, slot_minutes=$3, offer_expiry_minutes=$4, auto_offer=$5, inactive_days=$6, lost_days=$7, vip_visits=$8, public_booking=$9, booking_days=$10`,
+      [d.phone ?? null, d.timezone, d.slot_minutes, d.offer_expiry_minutes, d.auto_offer, d.inactive_days, d.lost_days, d.vip_visits, !!d.public_booking, d.booking_days]);
     await audit(tx, s, 'configuracoes.alteradas');
   });
 }

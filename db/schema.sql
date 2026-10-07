@@ -357,6 +357,18 @@ create table if not exists audit_log (
 );
 create index if not exists audit_shop on audit_log(barbershop_id, created_at desc);
 
+-- agendamento online: endereço público da barbearia e regras
+alter table barbershops add column if not exists slug text;
+create unique index if not exists barbershops_slug on barbershops(slug);
+alter table settings add column if not exists public_booking boolean not null default true;
+alter table settings add column if not exists booking_days int not null default 14;
+
+create or replace function make_slug(p text) returns text language sql immutable as $$
+  select trim(both '-' from regexp_replace(lower(translate(p,
+    'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ', 'aaaaaeeeeiiiiooooouuuucaaaaaeeeeiiiiooooouuuuc')), '[^a-z0-9]+', '-', 'g'))
+$$;
+update barbershops set slug = left(coalesce(nullif(make_slug(name), ''), 'barbearia'), 30) || '-' || substr(md5(id::text), 1, 4) where slug is null;
+
 do $$ declare t text; begin
   foreach t in array array['barbershops','settings','barbers','users','services','work_hours','time_blocks',
     'marketing_sources','clients','appointments','waiting_list','waiting_list_offers','message_templates',
@@ -415,7 +427,7 @@ grant select, insert, update, delete on
   waiting_list, waiting_list_offers, message_templates, messages, expenses, fixed_costs, revenues,
   marketing_metrics, goals, notifications to barber_app;
 grant select, insert, update on appointments, settings to barber_app;
-grant select, update (name) on barbershops to barber_app;
+grant select, update (name, slug) on barbershops to barber_app;
 grant select, insert on audit_log to barber_app;
 -- senha: o app insere, mas nunca lê nem altera direto (só pelas funções auth_*)
 grant select (id, barbershop_id, barber_id, name, email, role, active, created_at, updated_at) on users to barber_app;
@@ -546,6 +558,7 @@ begin
   if exists (select from users where email = lower(p_email)) then return null; end if;
 
   insert into barbershops (name) values (p_shop) returning id into v_shop;
+  update barbershops set slug = left(coalesce(nullif(make_slug(p_shop), ''), 'barbearia'), 30) || '-' || substr(md5(v_shop::text), 1, 4) where id = v_shop;
   insert into settings (barbershop_id) values (v_shop);
   insert into users (barbershop_id, name, email, password_hash, role)
     values (v_shop, p_name, lower(p_email), p_hash, 'admin') returning id into v_user;
@@ -676,10 +689,116 @@ begin
   return 'recusou';
 end $$;
 
+-- ───────────────────── agendamento online (página pública) ─────────────────────
+-- Horários ocupados do dia, sem nenhum dado de cliente. Usado para calcular os horários livres.
+create or replace function day_busy(p_date date) returns table (barber_id uuid, a int, len int)
+language sql stable security definer set search_path = public, pg_temp as $$
+  select ap.barber_id,
+         (extract(hour from ap.starts_at at time zone st.timezone) * 60 + extract(minute from ap.starts_at at time zone st.timezone))::int,
+         (extract(epoch from ap.ends_at - ap.starts_at) / 60)::int
+  from appointments ap join settings st on st.barbershop_id = ap.barbershop_id
+  where ap.barbershop_id = app_shop() and ap.status not in ('cancelado', 'faltou')
+    and ap.starts_at >= (p_date::timestamp at time zone st.timezone)
+    and ap.starts_at < ((p_date + 1)::timestamp at time zone st.timezone)
+$$;
+
+create or replace function public_shop(p_slug text)
+returns table (id uuid, name text, phone text, timezone text, public_booking boolean, booking_days int, slot_minutes int)
+language sql stable security definer set search_path = public, pg_temp as $$
+  select b.id, b.name, st.phone, st.timezone, st.public_booking, st.booking_days, st.slot_minutes
+  from barbershops b join settings st on st.barbershop_id = b.id where b.slug = p_slug
+$$;
+
+-- acha o cliente pelo telefone (só dígitos) ou cria um novo com origem "Site"
+create or replace function public_client(p_shop uuid, p_name text, p_phone text, p_barber uuid) returns uuid
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare v_client uuid; v_digits text := regexp_replace(p_phone, '\D', '', 'g');
+begin
+  select id into v_client from clients where barbershop_id = p_shop
+    and regexp_replace(coalesce(phone, ''), '\D', '', 'g') = v_digits order by created_at limit 1;
+  if v_client is null then
+    insert into clients (barbershop_id, name, phone, preferred_barber_id, source_id)
+    values (p_shop, p_name, p_phone, p_barber,
+            (select id from marketing_sources where barbershop_id = p_shop and name = 'Site' and active limit 1))
+    returning id into v_client;
+  end if;
+  return v_client;
+end $$;
+
+-- limite por conexão: no máximo 6 pedidos por hora vindos do mesmo IP
+create or replace function public_rate_ok(p_ip text) returns boolean
+language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  if (select count(*) from login_attempts where email = '#agendar' and ip = p_ip and created_at > now() - interval '1 hour') >= 6 then
+    return false;
+  end if;
+  insert into login_attempts (email, ip, success) values ('#agendar', p_ip, true);
+  return true;
+end $$;
+
+-- resultado: ok | invalido | limite | muitos | ocupado
+create or replace function public_book(p_shop uuid, p_service uuid, p_barber uuid, p_date date, p_time time,
+                                       p_name text, p_phone text, p_ip text) returns text
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare st settings; sv services; v_client uuid; v_start timestamptz; v_appt uuid;
+begin
+  select * into st from settings where barbershop_id = p_shop;
+  if not found or not st.public_booking then return 'invalido'; end if;
+  if not public_rate_ok(p_ip) then return 'limite'; end if;
+  select * into sv from services where id = p_service and barbershop_id = p_shop and active;
+  if not found or not exists (select from barber_services bs join barbers b on b.id = bs.barber_id
+       where bs.barber_id = p_barber and bs.service_id = p_service and b.active and b.barbershop_id = p_shop) then
+    return 'invalido';
+  end if;
+  v_start := (p_date + p_time) at time zone st.timezone;
+  if v_start < now() or p_date > (now() at time zone st.timezone)::date + st.booking_days then return 'invalido'; end if;
+  v_client := public_client(p_shop, p_name, p_phone, p_barber);
+  if (select count(*) from appointments where client_id = v_client and starts_at > now()
+        and status in ('agendado', 'confirmado', 'encaixado')) >= 2 then
+    return 'muitos';
+  end if;
+  begin
+    insert into appointments (barbershop_id, client_id, barber_id, service_id, source_id, starts_at, ends_at, price, notes)
+    values (p_shop, v_client, p_barber, p_service, (select source_id from clients where id = v_client), v_start,
+            v_start + make_interval(mins => sv.duration_min), sv.price, 'Agendado pelo site')
+    returning id into v_appt;
+  exception when exclusion_violation then return 'ocupado';
+  end;
+  insert into notifications (barbershop_id, title, body, link)
+    values (p_shop, 'Novo agendamento pelo site', p_name || ', ' || to_char(v_start at time zone st.timezone, 'DD/MM "às" HH24:MI') || ' (' || sv.name || ')', '/agenda?d=' || p_date);
+  insert into audit_log (barbershop_id, action, entity, entity_id, ip) values (p_shop, 'agendamento.pelo_site', 'appointment', v_appt::text, p_ip);
+  return 'ok';
+end $$;
+
+-- resultado: ok | invalido | limite
+create or replace function public_wait(p_shop uuid, p_service uuid, p_barber uuid, p_date date, p_from time, p_to time,
+                                       p_name text, p_phone text, p_ip text) returns text
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare st settings; v_client uuid;
+begin
+  select * into st from settings where barbershop_id = p_shop;
+  if not found or not st.public_booking or p_to <= p_from
+     or p_date < (now() at time zone st.timezone)::date or p_date > (now() at time zone st.timezone)::date + st.booking_days
+     or not exists (select from services where id = p_service and barbershop_id = p_shop and active)
+     or (p_barber is not null and not exists (select from barbers where id = p_barber and barbershop_id = p_shop and active)) then
+    return 'invalido';
+  end if;
+  if not public_rate_ok(p_ip) then return 'limite'; end if;
+  v_client := public_client(p_shop, p_name, p_phone, p_barber);
+  if exists (select from waiting_list where client_id = v_client and desired_date = p_date and status = 'ativo') then return 'ok'; end if;
+  insert into waiting_list (barbershop_id, client_id, service_id, barber_id, desired_date, window_start, window_end, notes)
+    values (p_shop, v_client, p_service, p_barber, p_date, p_from, p_to, 'Entrou pelo site');
+  insert into notifications (barbershop_id, title, body, link)
+    values (p_shop, 'Novo cliente na fila de espera', p_name || ' pediu horário pelo site para ' || to_char(p_date, 'DD/MM'), '/fila');
+  return 'ok';
+end $$;
+
 revoke all on all functions in schema public from public;
 grant execute on function
   auth_login_allowed(text, text), auth_login_record(text, text, boolean), auth_user_for_login(text),
   auth_session_create(uuid, bytea, text, text), auth_session_get(bytea), auth_session_delete(bytea),
   auth_register(text, text, text, text, text), auth_own_hash(), auth_set_password(uuid, text, bytea),
   offer_accept(uuid), offer_public_get(bytea), offer_public_respond(bytea, boolean),
+  day_busy(date), public_shop(text), public_book(uuid, uuid, uuid, date, time, text, text, text),
+  public_wait(uuid, uuid, uuid, date, time, time, text, text, text),
   app_shop(), app_user(), app_barber(), app_role(), app_is_staff() to barber_app;
